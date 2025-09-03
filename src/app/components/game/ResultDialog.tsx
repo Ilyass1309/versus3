@@ -1,7 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useGame } from "./GameShell";
-import { Dialog, DialogContent } from "@/app/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogClose,
+} from "@/app/components/ui/dialog";
 import { Button } from "@/app/components/ui/Button";
 import { X } from "lucide-react";
 
@@ -10,7 +14,6 @@ export function ResultDialog() {
   const { result } = engine;
   const [open, setOpen] = useState(false);
 
-  // Ouvre automatiquement à la fin, mais laisse l’utilisateur fermer la fenêtre sans relancer.
   useEffect(() => {
     if (engine.isOver) setOpen(true);
     else setOpen(false);
@@ -28,32 +31,39 @@ export function ResultDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent title={title}>
-        <button
-          aria-label="Fermer"
-          onClick={() => setOpen(false)}
-          className="absolute top-2 right-2 p-1 rounded hover:bg-white/10 transition"
-        >
-          <X size={16} />
-        </button>
-        <div className="space-y-4 text-sm">
-          <p>
-            Tours: <span className="font-semibold">{result.turns}</span>
-          </p>
-          <div className="flex gap-2">
-            <Button
-              onClick={() => engine.restart()}
-              variant="solid"
-              className="flex-1"
+        <div className="relative pt-10">
+          <DialogClose asChild>
+            <button
+              aria-label="Close"
+              className="absolute top-2 right-2 p-1 rounded-md text-slate-300 hover:bg-white/10 focus:outline-none focus-visible:ring focus-visible:ring-emerald-400/60 transition"
             >
-              Rejouer
-            </Button>
-            <Button
-              onClick={() => setOpen(false)}
-              variant="ghost"
-              className="flex-1"
-            >
-              Fermer
-            </Button>
+              <X size={16} />
+            </button>
+          </DialogClose>
+
+          <div className="space-y-4 text-sm">
+            <p>
+              Tours: <span className="font-semibold">{result.turns}</span>
+            </p>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => {
+                  setOpen(false);
+                  engine.restart();
+                }}
+                variant="solid"
+                className="flex-1"
+              >
+                Rejouer
+              </Button>
+              <Button
+                onClick={() => setOpen(false)}
+                variant="ghost"
+                className="flex-1"
+              >
+                Fermer
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>

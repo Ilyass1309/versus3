@@ -1,8 +1,34 @@
 "use client";
 import { useGame } from "./GameShell";
-import { Action } from "@/lib/rl/types";
 import { BattleEvent } from "@/hooks/useGameEngine";
+import { AnimatePresence, motion } from "framer-motion";
 import { Sword, Shield, Battery } from "lucide-react";
+import { Action } from "@/lib/rl/types";
+
+// Ajouter util meta
+function actionMeta(a: Action) {
+  switch (a) {
+    case Action.ATTACK:
+      return {
+        label: "Attaque",
+        color: "bg-rose-600/80 border-rose-400/40 text-rose-50",
+        icon: <Sword size={18} />,
+      };
+    case Action.DEFEND:
+      return {
+        label: "Défense",
+        color: "bg-sky-600/80 border-sky-400/40 text-sky-50",
+        icon: <Shield size={18} />,
+      };
+    case Action.CHARGE:
+    default:
+      return {
+        label: "Charge",
+        color: "bg-amber-500/80 border-amber-300/50 text-amber-900",
+        icon: <Battery size={18} />,
+      };
+  }
+}
 
 function ChargePills({ count }: { count: number }) {
   return (
@@ -77,6 +103,7 @@ export function Arena() {
       (e): e is Extract<BattleEvent, { type: "turn" }> => e.type === "turn"
     )
     .at(-1);
+  const reveal = engine.lastReveal;
 
   return (
     <section
@@ -106,6 +133,31 @@ export function Arena() {
       <div className="col-span-full mt-4 text-[11px] text-slate-500 flex justify-between">
         <span>Tour: {lastTurn ? lastTurn.n : 0}</span>
       </div>
+      <AnimatePresence>
+        {reveal && (
+          <motion.div
+            key="reveal"
+            initial={{ opacity: 0, scale: 0.9, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: -10 }}
+            transition={{ duration: 0.25 }}
+            className="pointer-events-none absolute inset-x-0 top-2 flex justify-center"
+          >
+            <div className="flex gap-4 rounded-xl backdrop-blur-md bg-slate-900/60 border border-white/10 px-5 py-3 shadow-lg">
+              <RevealCard
+                side="Vous"
+                action={reveal.player.action}
+                spend={reveal.player.spend}
+              />
+              <RevealCard
+                side="IA"
+                action={reveal.ai.action}
+                spend={reveal.ai.spend}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }
@@ -132,6 +184,35 @@ function FighterSprite({
       }`}
     >
       {icon || <span className="text-xs opacity-40">En attente...</span>}
+    </div>
+  );
+}
+
+function RevealCard({
+  side,
+  action,
+  spend,
+}: {
+  side: string;
+  action: Action;
+  spend: number;
+}) {
+  const meta = actionMeta(action);
+  return (
+    <div
+      className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium ${meta.color}`}
+    >
+      <span className="flex items-center gap-1">
+        {meta.icon}
+        {side}
+      </span>
+      <span className="opacity-70">•</span>
+      <span>
+        {meta.label}
+        {action === Action.ATTACK && spend > 1 && (
+          <span className="ml-1 font-semibold">×{spend}</span>
+        )}
+      </span>
     </div>
   );
 }

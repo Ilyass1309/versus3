@@ -1,15 +1,16 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { stepWithPower, encodeState, MAX_HP, initialState } from "@/lib/rl/env";
 import { Action, State } from "@/lib/rl/types";
-import { initialState, stepWithPower, encodeState, MAX_HP } from "@/lib/rl/env";
 import { useEpisodeLogger } from "@/hooks/useEpisodeLogger";
 import { audio } from "@/lib/audio";
 
 export type BattleEvent =
-  | { type: "attack"; who: "ai" | "player"; dmg: number }
+  | { type: "attack"; who: "ai" | "player"; dmg: number; spend?: number }
   | { type: "defend"; who: "ai" | "player" }
   | { type: "charge"; who: "ai" | "player" }
   | { type: "turn"; n: number }
+  | { type: "reveal"; turn: number; player: { action: Action; spend: number }; ai: { action: Action; spend: number } }
   | { type: "result"; outcome: "win" | "lose" | "draw" };
 
 export type Result = { outcome: "win" | "lose" | "draw"; turns: number };
@@ -42,6 +43,11 @@ export function useGameEngine(opts: EngineOptions) {
   const [qTable, setQTable] = useState<QTableData | null>(null);
   const [serverStatus, setServerStatus] = useState<"ok" | "error" | "loading">("loading");
   const [playerAttackSpend, setPlayerAttackSpend] = useState(1);
+  const [lastReveal, setLastReveal] = useState<{
+    turn: number;
+    player: { action: Action; spend: number };
+    ai: { action: Action; spend: number };
+  } | null>(null);
 
   const logger = useEpisodeLogger(qTable?.version ?? 0);
   const mounted = useRef(true);
@@ -111,75 +117,129 @@ export function useGameEngine(opts: EngineOptions) {
     setEvents((prev) => [...prev, ...evs]);
   }, []);
 
-  const resolveTurn = useCallback(async () => {
+  const confirm = useCallback(() => {
     if (playerPending == null || isResolving || isOver) return;
+    // verrou
     setIsResolving(true);
 
     const prev = state;
     const aiAction = chooseAIAction(prev);
-
-    // Politique simple IA : dépense tout en attaque
     const aiSpend = aiAction === Action.ATTACK ? prev.pCharge : 0;
-    const plSpend = playerPending === Action.ATTACK
-      ? Math.max(1, Math.min(playerAttackSpend, prev.eCharge))
-      : 0;
+    const plSpend =
+      playerPending === Action.ATTACK
+        ? Math.max(1, Math.min(playerAttackSpend, prev.eCharge))
+        : 0;
 
-    const { s2, r, done } = stepWithPower(prev, aiAction, aiSpend, playerPending, plSpend);
+    const reveal = {
+      turn: prev.turn + 1,
+      player: { action: playerPending, spend: plSpend },
+      ai: { action: aiAction, spend: aiSpend },
+    };
+    setLastReveal(reveal);
 
-    const dmgPlayerToAI = Math.max(0, prev.pHP - s2.pHP);
-    const dmgAIToPlayer = Math.max(0, prev.eHP - s2.eHP);
+    // Événement REVEAL immédiat (log clair avant dégâts)
+    appendEvents([
+      {
+        type: "reveal",
+        turn: reveal.turn,
+        player: reveal.player,
+        ai: reveal.ai,
+      },
+    ]);
 
-    const evs: BattleEventExtended[] = [{ type: "turn", n: s2.turn }];
-
-    if (playerPending === Action.ATTACK) {
-      evs.push({ type: "attack", who: "player", dmg: dmgPlayerToAI, spend: plSpend });
-      if (dmgPlayerToAI > 0) audio.play("attack");
-    } else if (playerPending === Action.DEFEND) {
-      evs.push({ type: "defend", who: "player" }); audio.play("defend");
-    } else if (playerPending === Action.CHARGE) {
-      evs.push({ type: "charge", who: "player" }); audio.play("charge");
-    }
-
-    if (aiAction === Action.ATTACK) {
-      evs.push({ type: "attack", who: "ai", dmg: dmgAIToPlayer, spend: aiSpend });
-    } else if (aiAction === Action.DEFEND) {
-      evs.push({ type: "defend", who: "ai" });
-    } else if (aiAction === Action.CHARGE) {
-      evs.push({ type: "charge", who: "ai" });
-    }
-
+    // On log maintenant (serveur recalculera)
     logger.logStep(aiAction, playerPending, aiSpend, plSpend);
-    setState(s2);
-    appendEvents(evs as BattleEvent[]);
-    setPlayerPending(null);
-    setPlayerAttackSpend(1);
 
-    if (done) {
-      // r > 0  => IA gagne ; r < 0 => joueur gagne
-      const outcome: Result["outcome"] =
-        r === 0 ? "draw" : r > 0 ? "lose" : "win";
-      appendEvents([{ type: "result", outcome }]);
-      setIsOver(true);
-      setResult({ outcome, turns: s2.turn });
-      audio.play(outcome === "win" ? "win" : "lose");
-      try {
-        const res = await logger.submit();
-        if (res?.newVersion && res.newVersion !== qTable?.version) {
-          const qtRes = await fetch("/api/qtable", { cache: "no-store" });
-          if (qtRes.ok) {
-            const json = await qtRes.json().catch(() => null);
-            if (json && mounted.current) {
-              setQTable({ version: json.version, q: json.q || {} });
-            }
-          }
-        }
-      } catch {
-        opts.onError?.("Erreur en soumettant l'épisode");
+    // Après courte animation (~1s) on résout les dégâts
+    setTimeout(() => {
+      const { s2, r, done } = stepWithPower(
+        prev,
+        aiAction,
+        aiSpend,
+        playerPending,
+        plSpend
+      );
+
+      const dmgPlayerToAI = Math.max(0, prev.pHP - s2.pHP);
+      const dmgAIToPlayer = Math.max(0, prev.eHP - s2.eHP);
+
+      const evs: BattleEvent[] = [{ type: "turn", n: s2.turn }];
+
+      if (playerPending === Action.ATTACK) {
+        evs.push({
+          type: "attack",
+          who: "player",
+            dmg: dmgPlayerToAI,
+          spend: plSpend,
+        });
+        if (dmgPlayerToAI > 0) audio.play("attack");
+      } else if (playerPending === Action.DEFEND) {
+        evs.push({ type: "defend", who: "player" });
+        audio.play("defend");
+      } else if (playerPending === Action.CHARGE) {
+        evs.push({ type: "charge", who: "player" });
+        audio.play("charge");
       }
-    }
 
-    if (mounted.current) setIsResolving(false);
-  }, [appendEvents, chooseAIAction, isOver, isResolving, logger, playerAttackSpend, playerPending, state, qTable?.version, opts]);
+      if (aiAction === Action.ATTACK) {
+        evs.push({
+          type: "attack",
+          who: "ai",
+          dmg: dmgAIToPlayer,
+          spend: aiSpend,
+        });
+      } else if (aiAction === Action.DEFEND) {
+        evs.push({ type: "defend", who: "ai" });
+      } else if (aiAction === Action.CHARGE) {
+        evs.push({ type: "charge", who: "ai" });
+      }
+
+      setState(s2);
+      appendEvents(evs);
+      setPlayerPending(null);
+      setPlayerAttackSpend(1);
+      setLastReveal(null);
+
+      if (done) {
+        // r > 0 => IA gagne, donc joueur perd
+        const outcome: Result["outcome"] =
+          r === 0 ? "draw" : r > 0 ? "lose" : "win";
+        appendEvents([{ type: "result", outcome }]);
+        setIsOver(true);
+        setResult({ outcome, turns: s2.turn });
+        audio.play(outcome === "win" ? "win" : "lose");
+        (async () => {
+          try {
+            const res = await logger.submit();
+            if (res?.newVersion && res.newVersion !== qTable?.version) {
+              const qtRes = await fetch("/api/qtable", { cache: "no-store" });
+              if (qtRes.ok) {
+                const json = await qtRes.json().catch(() => null);
+                if (json && mounted.current) {
+                  setQTable({ version: json.version, q: json.q || {} });
+                }
+              }
+            }
+          } catch {
+            opts.onError?.("Erreur en soumettant l'épisode");
+          }
+        })();
+      }
+
+      if (mounted.current) setIsResolving(false);
+    }, 1000);
+  }, [
+    appendEvents,
+    chooseAIAction,
+    isOver,
+    isResolving,
+    logger,
+    playerAttackSpend,
+    playerPending,
+    state,
+    qTable?.version,
+    opts,
+  ]);
 
   const playerPick = useCallback(
     (a: Action) => {
@@ -194,10 +254,6 @@ export function useGameEngine(opts: EngineOptions) {
     setPlayerAttackSpend(n);
   }, []);
 
-  const confirm = useCallback(() => {
-    if (playerPending != null) resolveTurn();
-  }, [playerPending, resolveTurn]);
-
   const restart = useCallback(() => {
     setState(initialState());
     setEvents([]);
@@ -205,12 +261,13 @@ export function useGameEngine(opts: EngineOptions) {
     setResult(null);
     setPlayerPending(null);
     setPlayerAttackSpend(1);
+    setLastReveal(null);
   }, []);
 
   const hpBarColor = useCallback((ratio: number) => {
-    if (ratio > 0.66) return "from-green-500 to-green-400";
-    if (ratio > 0.33) return "from-amber-500 to-amber-400";
-    return "from-red-600 to-red-500";
+    if (ratio > 0.5) return "bg-green-500";
+    if (ratio > 0.2) return "bg-yellow-500";
+    return "bg-red-500";
   }, []);
 
   return {
@@ -219,20 +276,22 @@ export function useGameEngine(opts: EngineOptions) {
     hpRatioAI,
     hpBarColor,
     events,
+    lastReveal,
     playerPending,
     playerAttackSpend,
     setAttackSpend,
     isResolving,
     isOver,
     result,
-    qVersion: qTable?.version,
-    qLoaded: !!qTable,
     serverStatus,
+    // --- propriétés manquantes ajoutées ---
+    qVersion: qTable?.version ?? null,
+    setVolume: (v: number) => audio.setVolume(v),
+    // --------------------------------------
     playerPick,
     confirm,
     restart,
     chooseAIAction,
-    setVolume: (v: number) => audio.setVolume(v),
-    setEpsilon: () => {}, // compat
+    setEpsilon: () => {}, // compat si utilisé ailleurs
   };
 }
