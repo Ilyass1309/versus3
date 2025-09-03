@@ -266,6 +266,24 @@ export function useGameEngine(opts: EngineOptions) {
     return "bg-red-500";
   }, []);
 
+  // ...dans useEffect de chargement initial (adapter si déjà présent)...
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/qtable", { cache: "no-store" });
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!cancelled && json?.q) {
+          setQTable({ version: json.version, q: json.q });
+        }
+      } catch (e) {
+        console.warn("Q-table load failed", (e as Error).message);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   return {
     state,
     hpRatioPlayer,
