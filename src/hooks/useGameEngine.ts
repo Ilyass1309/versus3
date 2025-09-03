@@ -111,28 +111,27 @@ export function useGameEngine(opts: EngineOptions) {
     if (playerPending == null || isResolving || isOver) return;
     setIsResolving(true);
 
-    const aiAction = chooseAIAction(state);
-    const { s2, r, done } = step(state, aiAction, playerPending);
+    const prev = state;
+    const aiAction = chooseAIAction(prev);
+    const { s2, r, done } = step(prev, aiAction, playerPending);
+
+    // Deltas réels (p* = IA, e* = Joueur)
+    const dmgPlayerToAI = Math.max(0, prev.pHP - s2.pHP);
+    const dmgAIToPlayer = Math.max(0, prev.eHP - s2.eHP);
 
     const evs: BattleEvent[] = [{ type: "turn", n: s2.turn }];
 
-    // PLAYER side uses eCharge (player energy), AI uses pCharge.
-    const playerChargeBefore = state.eCharge;
-    const aiChargeBefore = state.pCharge;
-
-    // Player event
     if (playerPending === Action.ATTACK) {
-      evs.push({ type: "attack", who: "player", dmg: playerChargeBefore > 0 ? ATTACK_DAMAGE : 0 });
-      if (playerChargeBefore > 0) audio.play("attack");
+      evs.push({ type: "attack", who: "player", dmg: dmgPlayerToAI });
+      if (dmgPlayerToAI > 0) audio.play("attack");
     } else if (playerPending === Action.DEFEND) {
       evs.push({ type: "defend", who: "player" }); audio.play("defend");
     } else if (playerPending === Action.CHARGE) {
       evs.push({ type: "charge", who: "player" }); audio.play("charge");
     }
 
-    // AI event
     if (aiAction === Action.ATTACK) {
-      evs.push({ type: "attack", who: "ai", dmg: aiChargeBefore > 0 ? ATTACK_DAMAGE : 0 });
+      evs.push({ type: "attack", who: "ai", dmg: dmgAIToPlayer });
     } else if (aiAction === Action.DEFEND) {
       evs.push({ type: "defend", who: "ai" });
     } else if (aiAction === Action.CHARGE) {
