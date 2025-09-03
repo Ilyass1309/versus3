@@ -28,27 +28,31 @@ function resolveDamage(attackerCharge: number, defenderAction: Action): number {
  * @param aPL action du joueur (0..2)
  * @returns next state, reward (pour l'IA), done
  */
-export function step(s: State, aAI: Action, aPL: Action): { s2: State; r: number; done: boolean } {
-  // Copie
-  let { pHP, pCharge, eHP, eCharge, turn } = s;
+export function step(
+  s: State,
+  aAI: Action,
+  aPL: Action
+): { s2: State; r: number; done: boolean } {
+  // Copie (non réassignée)
+  const { pHP, pCharge, eHP, eCharge, turn } = s;
 
   // Charges appliquées (pré-résolution)
   let nextPCharge = pCharge;
   let nextECharge = eCharge;
 
   // Dégâts simultanés
-  const dmgToEnemy =
-    aAI === Action.ATTACK ? resolveDamage(pCharge, aPL) : 0;
-  const dmgToAI =
-    aPL === Action.ATTACK ? resolveDamage(eCharge, aAI) : 0;
+  const dmgToEnemy = aAI === Action.ATTACK ? resolveDamage(pCharge, aPL) : 0;
+  const dmgToAI = aPL === Action.ATTACK ? resolveDamage(eCharge, aAI) : 0;
 
-  // Consommation de charge si ATTACK avec charge>0
+  // Consommation de charge si ATTACK avec charge > 0
   if (aAI === Action.ATTACK && pCharge > 0) nextPCharge -= 1;
   if (aPL === Action.ATTACK && eCharge > 0) nextECharge -= 1;
 
   // Gain de charge si CHARGE
-  if (aAI === Action.CHARGE) nextPCharge = clamp(nextPCharge + 1, 0, MAX_CHARGE);
-  if (aPL === Action.CHARGE) nextECharge = clamp(nextECharge + 1, 0, MAX_CHARGE);
+  if (aAI === Action.CHARGE)
+    nextPCharge = clamp(nextPCharge + 1, 0, MAX_CHARGE);
+  if (aPL === Action.CHARGE)
+    nextECharge = clamp(nextECharge + 1, 0, MAX_CHARGE);
 
   // Appliquer dégâts
   const nextEHP = clamp(eHP - dmgToEnemy, 0, MAX_HP);
