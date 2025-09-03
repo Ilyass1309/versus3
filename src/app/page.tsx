@@ -1,15 +1,26 @@
-import GameUI from "./components/GameUI";
+// Pas de "use client" (les sous-composants le déclarent déjà)
+// Optionnel si tu veux éviter le prerender strict: export const dynamic = "force-dynamic";
+
+import { GameShell } from "./components/game/GameShell";
+import { GameHeader } from "./components/game/GameHeader";
+import { Arena } from "./components/game/Arena";
+import { ActionBar } from "./components/game/ActionBar";
+import { BattleLog } from "./components/game/BattleLog";
+import { ResultDialog } from "./components/game/ResultDialog";
+
+export const dynamic = "force-dynamic";
 
 export default function HomePage() {
   return (
-    <main style={{ maxWidth: 720, margin: "40px auto", fontFamily: "system-ui, sans-serif" }}>
-      <h1>Server-authoritative Q-learning (Next.js + Vercel Postgres)</h1>
-      <p>Démo minimale — endpoints prêts pour intégrer votre UI/agent.</p>
-      <GameUI />
-      <p style={{ marginTop: 24, color: "#666" }}>
-        Astuce : Vous pouvez poster vos épisodes réels depuis votre UI (actions de l’IA vs joueur),
-        le serveur rejoue et met à jour la Q-table transactionnellement.
-      </p>
-    </main>
+    <GameShell>
+      <GameHeader />
+      <Arena />
+      <ActionBar />
+      <BattleLog />
+      <ResultDialog />
+      <footer className="mt-10 text-[10px] text-slate-500">
+        RL demo – charges, attaques simultanées & Q-learning.
+      </footer>
+    </GameShell>
   );
 }
