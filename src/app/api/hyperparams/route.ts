@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
 // In-memory (remplacer par DB si besoin)
-let hyper = { alpha: 0.18, gamma: 0.98, epsilon: 0.05 };
+// 'const' suffisant: on mute les propriétés, pas la référence
+const hyper = { alpha: 0.18, gamma: 0.98, epsilon: 0.05 };
 
 export async function GET() {
   return NextResponse.json(hyper);

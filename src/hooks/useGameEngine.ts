@@ -28,10 +28,6 @@ interface EngineOptions {
   onError?: (msg: string) => void;
 }
 
-type BattleEventExtended =
-  | BattleEvent
-  | { type: "attack"; who: "ai" | "player"; dmg: number; spend: number };
-
 export function useGameEngine(opts: EngineOptions) {
   const { epsilon } = opts;
   const [state, setState] = useState<State>(() => initialState());

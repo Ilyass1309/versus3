@@ -168,7 +168,8 @@ export default function StatsPage() {
                         fontSize: "12px",
                       }}
                       labelStyle={{ color: "#cbd5e1" }}
-                      formatter={(v: any) => [v.toFixed(1) + "%", "Win Rate"]}
+                      // éviter 'any'
+                      formatter={(value: number) => [`${value.toFixed(1)}%`, "Win Rate"]}
                     />
                     <Line
                       type="monotone"
