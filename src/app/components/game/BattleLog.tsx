@@ -73,8 +73,3 @@ function LogEntry({ entry }: { entry: LogEvent }) {
       return null;
   }
 }
-
-// Minimal internal scroll area
-function clsx(...c: (string|undefined|false)[]) { return c.filter(Boolean).join(" "); }
-// Hidden internal component to keep single file
-function ScrollViewport(props: any){ return <div {...props} />; }
