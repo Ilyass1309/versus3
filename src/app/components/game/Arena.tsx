@@ -46,6 +46,11 @@ export function Arena() {
   const lastTurn = events.filter(e => e.type === "turn").at(-1);
   const damageEvents = events.filter(e => e.type === "attack").slice(-4);
 
+  // Use remapped ratios (engine already remaps), but for raw counts we display:
+  // Player => eHP / eCharge ; AI => pHP / pCharge
+  const playerCharge = engine.state.eCharge;
+  const aiCharge = engine.state.pCharge;
+
   return (
     <section
       aria-label="Aire de combat"
@@ -56,7 +61,7 @@ export function Arena() {
           <HPBar ratio={engine.hpRatioPlayer} label="Vous" />
           <div className="mt-2 flex items-center justify-between text-xs text-slate-300">
             <span>Charge</span>
-            <ChargePills count={engine.state.pCharge} />
+            <ChargePills count={playerCharge} />
           </div>
         </div>
         <FighterSprite who="player" actionPending={engine.playerPending} />
@@ -66,7 +71,7 @@ export function Arena() {
         <div className="text-right">
           <HPBar ratio={engine.hpRatioAI} label="Adversaire" />
           <div className="mt-2 flex items-center justify-between text-xs text-slate-300">
-            <ChargePills count={engine.state.eCharge} />
+            <ChargePills count={aiCharge} />
             <span>Charge</span>
           </div>
         </div>

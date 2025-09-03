@@ -69,8 +69,10 @@ export function useGameEngine(opts: EngineOptions) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const hpRatioPlayer = state.pHP / MAX_HP;
-  const hpRatioAI = state.eHP / MAX_HP;
+  // IMPORTANT: In the env State, p* values actually correspond to the AI and e* to the player (observed by charge bar swap).
+  // We remap for UI convenience.
+  const hpRatioPlayer = state.eHP / MAX_HP;
+  const hpRatioAI = state.pHP / MAX_HP;
 
   const chooseAIAction = useCallback(
     (s: State): Action => {
@@ -108,28 +110,40 @@ export function useGameEngine(opts: EngineOptions) {
   const resolveTurn = useCallback(async () => {
     if (playerPending == null || isResolving || isOver) return;
     setIsResolving(true);
+
     const aiAction = chooseAIAction(state);
     const { s2, r, done } = step(state, aiAction, playerPending);
+
     const evs: BattleEvent[] = [{ type: "turn", n: s2.turn }];
+
+    // PLAYER side uses eCharge (player energy), AI uses pCharge.
+    const playerChargeBefore = state.eCharge;
+    const aiChargeBefore = state.pCharge;
+
+    // Player event
     if (playerPending === Action.ATTACK) {
-      evs.push({ type: "attack", who: "player", dmg: state.pCharge > 0 ? ATTACK_DAMAGE : 0 });
-      if (state.pCharge > 0) audio.play("attack");
+      evs.push({ type: "attack", who: "player", dmg: playerChargeBefore > 0 ? ATTACK_DAMAGE : 0 });
+      if (playerChargeBefore > 0) audio.play("attack");
     } else if (playerPending === Action.DEFEND) {
       evs.push({ type: "defend", who: "player" }); audio.play("defend");
     } else if (playerPending === Action.CHARGE) {
       evs.push({ type: "charge", who: "player" }); audio.play("charge");
     }
+
+    // AI event
     if (aiAction === Action.ATTACK) {
-      evs.push({ type: "attack", who: "ai", dmg: state.eCharge > 0 ? ATTACK_DAMAGE : 0 });
+      evs.push({ type: "attack", who: "ai", dmg: aiChargeBefore > 0 ? ATTACK_DAMAGE : 0 });
     } else if (aiAction === Action.DEFEND) {
       evs.push({ type: "defend", who: "ai" });
     } else if (aiAction === Action.CHARGE) {
       evs.push({ type: "charge", who: "ai" });
     }
+
     logger.logStep(aiAction, playerPending);
     setState(s2);
     appendEvents(evs);
     setPlayerPending(null);
+
     if (done) {
       const outcome: Result["outcome"] = r === 0 ? "draw" : r > 0 ? "win" : "lose";
       appendEvents([{ type: "result", outcome }]);
@@ -151,6 +165,7 @@ export function useGameEngine(opts: EngineOptions) {
         opts.onError?.("Erreur en soumettant l'épisode");
       }
     }
+
     if (mounted.current) setIsResolving(false);
   }, [appendEvents, chooseAIAction, isOver, isResolving, logger, playerPending, qTable?.version, state, opts]);
 
