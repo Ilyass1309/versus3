@@ -13,14 +13,6 @@ function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
-function resolveDamage(attackerCharge: number, defenderAction: Action): number {
-  const base = attackerCharge > 0 ? ATTACK_DAMAGE : 0;
-  if (defenderAction === Action.DEFEND) {
-    return Math.ceil(base / 2);
-  }
-  return base;
-}
-
 /**
  * Simule un tour simultané.
  * @param s état courant

@@ -1,13 +1,12 @@
 import { useRef, useState } from "react";
 
-type Step = { aAI: 0 | 1 | 2; aPL: 0 | 1 | 2 };
-type LoggedStep = { aAI: 0 | 1 | 2; aPL: 0 | 1 | 2; nAI?: number; nPL?: number };
+type LoggedStep = { aAI: 0|1|2; aPL: 0|1|2; nAI?: number; nPL?: number };
 
 export function useEpisodeLogger(version: number) {
   const steps = useRef<LoggedStep[]>([]);
   const [busy, setBusy] = useState(false);
 
-  function logStep(aAI: 0 | 1 | 2, aPL: 0 | 1 | 2, nAI?: number, nPL?: number) {
+  function logStep(aAI: 0|1|2, aPL: 0|1|2, nAI?: number, nPL?: number) {
     steps.current.push({ aAI, aPL, nAI, nPL });
   }
 

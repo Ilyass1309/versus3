@@ -1,6 +1,7 @@
 "use client";
 import { useGame } from "./GameShell";
 import { Action } from "@/lib/rl/types";
+import { BattleEvent } from "@/hooks/useGameEngine";
 import { Sword, Shield, Battery } from "lucide-react";
 
 function ChargePills({ count }: { count: number }) {
@@ -9,9 +10,7 @@ function ChargePills({ count }: { count: number }) {
       {Array.from({ length: 3 }, (_, i) => (
         <span
           key={i}
-          className={`h-3 w-3 rounded-sm ${
-            i < count ? "bg-accent" : "bg-white/10"
-          }`}
+            className={`h-3 w-3 rounded-sm ${i < count ? "bg-accent" : "bg-white/10"}`}
         />
       ))}
     </div>
@@ -57,9 +56,13 @@ function HPBar({ hp, max, label, gradient }: HPBarProps) {
 
 export function Arena() {
   const { engine, events } = useGame();
-  const playerHP = engine.state.eHP; // joueur
-  const aiHP = engine.state.pHP; // IA
-  const lastTurn = events.filter((e) => e.type === "turn").at(-1);
+  const playerHP = engine.state.eHP;
+  const aiHP = engine.state.pHP;
+  const lastTurn = events
+    .filter(
+      (e): e is Extract<BattleEvent, { type: "turn" }> => e.type === "turn"
+    )
+    .at(-1);
 
   const playerCharge = engine.state.eCharge;
   const aiCharge = engine.state.pCharge;
@@ -92,7 +95,7 @@ export function Arena() {
       </div>
 
       <div className="col-span-full mt-4 text-[11px] text-slate-500 flex justify-between">
-        <span>Tour: {lastTurn ? (lastTurn as any).n : 0}</span>
+        <span>Tour: {lastTurn ? lastTurn.n : 0}</span>
       </div>
     </section>
   );
