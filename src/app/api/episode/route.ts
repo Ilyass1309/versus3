@@ -1,19 +1,20 @@
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { initialState, step, encodeState } from "@/lib/rl/env";
+import { initialState, step, encodeState, stepWithPower } from "@/lib/rl/env";
 import { qUpdate } from "@/lib/rl/update";
 import { withLockedQTable, logEpisode } from "@/lib/db";
 import { validateAction } from "@/lib/utils/validation";
 import { Action } from "@/lib/rl/types";
 
-type ClientStep = { aAI: number; aPL: number; /* state_enc?: string */ };
+type ClientStep = { aAI: 0|1|2; aPL: 0|1|2; nAI?: number; nPL?: number };
 type Body = {
   clientVersion?: number;
   steps: ClientStep[];
 };
 
 const MAX_STEPS_BODY = 200; // sécurité basique anti-spam
+const MAX_CHARGE = 100; // valeur maximale pour nAI/nPL (exemple)
 
 export async function POST(req: NextRequest) {
   let body: Body;
@@ -99,4 +100,12 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json({ ok: true, newVersion: version });
+}
+
+function normN(a: number, n: unknown): number | undefined {
+  if (a !== 0) return undefined; // only for ATTACK
+  if (typeof n !== "number" || !Number.isFinite(n)) return undefined;
+  if (n < 0) return 0;
+  if (n > MAX_CHARGE) return MAX_CHARGE;
+  return Math.trunc(n);
 }

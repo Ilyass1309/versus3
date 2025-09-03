@@ -6,6 +6,7 @@ import { Action } from "@/lib/rl/types";
 import { Sword, Shield, Battery, Check } from "lucide-react";
 import { useEffect } from "react";
 import { useHotkeys } from "@/hooks/useHotkeys";
+import { Slider } from "@/app/components/ui/slider";
 
 export function ActionBar() {
   const { engine } = useGame();
@@ -29,6 +30,8 @@ export function ActionBar() {
   }, [engine.isOver]);
 
   const disabled = engine.isResolving || engine.isOver;
+  const showSpend = engine.playerPending === Action.ATTACK && engine.state.eCharge > 1;
+
   return (
     <div className="w-full max-w-5xl mt-6 flex flex-col gap-3">
       <div className="flex gap-3 flex-col md:flex-row">
@@ -75,6 +78,30 @@ export function ActionBar() {
           </Button>
         </Tooltip>
       </div>
+
+      {showSpend && (
+        <div className="glass p-3 flex flex-col gap-2">
+          <div className="flex justify-between text-[11px] text-slate-300 font-medium">
+            <span>Puissance attaque</span>
+            <span>{engine.playerAttackSpend} / {engine.state.eCharge}</span>
+          </div>
+          <Slider
+            value={[engine.playerAttackSpend]}
+            onValueChange={v => {
+              const raw = v[0] ?? 1;
+              const val = Math.min(
+                engine.state.eCharge,
+                Math.max(1, Math.round(raw))
+              );
+              engine.setAttackSpend(val);
+            }}
+            min={1}
+            max={engine.state.eCharge}
+            step={1}
+          />
+        </div>
+      )}
+
       <div className="flex gap-3">
         <Tooltip label="Valider le tour (Enter)">
           <Button

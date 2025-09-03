@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Action, State } from "@/lib/rl/types";
-import { initialState, step, encodeState, MAX_HP, ATTACK_DAMAGE } from "@/lib/rl/env";
+import { initialState, stepWithPower, encodeState, MAX_HP } from "@/lib/rl/env";
 import { useEpisodeLogger } from "@/hooks/useEpisodeLogger";
 import { audio } from "@/lib/audio";
 
@@ -27,6 +27,10 @@ interface EngineOptions {
   onError?: (msg: string) => void;
 }
 
+type BattleEventExtended =
+  | BattleEvent
+  | { type: "attack"; who: "ai" | "player"; dmg: number; spend: number };
+
 export function useGameEngine(opts: EngineOptions) {
   const { epsilon } = opts;
   const [state, setState] = useState<State>(() => initialState());
@@ -37,6 +41,7 @@ export function useGameEngine(opts: EngineOptions) {
   const [playerPending, setPlayerPending] = useState<Action | null>(null);
   const [qTable, setQTable] = useState<QTableData | null>(null);
   const [serverStatus, setServerStatus] = useState<"ok" | "error" | "loading">("loading");
+  const [playerAttackSpend, setPlayerAttackSpend] = useState(1);
 
   const logger = useEpisodeLogger(qTable?.version ?? 0);
   const mounted = useRef(true);
@@ -69,8 +74,7 @@ export function useGameEngine(opts: EngineOptions) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // IMPORTANT: In the env State, p* values actually correspond to the AI and e* to the player (observed by charge bar swap).
-  // We remap for UI convenience.
+  // Remap (p* = IA, e* = joueur)
   const hpRatioPlayer = state.eHP / MAX_HP;
   const hpRatioAI = state.pHP / MAX_HP;
 
@@ -113,16 +117,22 @@ export function useGameEngine(opts: EngineOptions) {
 
     const prev = state;
     const aiAction = chooseAIAction(prev);
-    const { s2, r, done } = step(prev, aiAction, playerPending);
 
-    // Deltas réels (p* = IA, e* = Joueur)
+    // Politique simple IA : dépense tout en attaque
+    const aiSpend = aiAction === Action.ATTACK ? prev.pCharge : 0;
+    const plSpend = playerPending === Action.ATTACK
+      ? Math.max(1, Math.min(playerAttackSpend, prev.eCharge))
+      : 0;
+
+    const { s2, r, done } = stepWithPower(prev, aiAction, aiSpend, playerPending, plSpend);
+
     const dmgPlayerToAI = Math.max(0, prev.pHP - s2.pHP);
     const dmgAIToPlayer = Math.max(0, prev.eHP - s2.eHP);
 
-    const evs: BattleEvent[] = [{ type: "turn", n: s2.turn }];
+    const evs: BattleEventExtended[] = [{ type: "turn", n: s2.turn }];
 
     if (playerPending === Action.ATTACK) {
-      evs.push({ type: "attack", who: "player", dmg: dmgPlayerToAI });
+      evs.push({ type: "attack", who: "player", dmg: dmgPlayerToAI, spend: plSpend });
       if (dmgPlayerToAI > 0) audio.play("attack");
     } else if (playerPending === Action.DEFEND) {
       evs.push({ type: "defend", who: "player" }); audio.play("defend");
@@ -131,17 +141,18 @@ export function useGameEngine(opts: EngineOptions) {
     }
 
     if (aiAction === Action.ATTACK) {
-      evs.push({ type: "attack", who: "ai", dmg: dmgAIToPlayer });
+      evs.push({ type: "attack", who: "ai", dmg: dmgAIToPlayer, spend: aiSpend });
     } else if (aiAction === Action.DEFEND) {
       evs.push({ type: "defend", who: "ai" });
     } else if (aiAction === Action.CHARGE) {
       evs.push({ type: "charge", who: "ai" });
     }
 
-    logger.logStep(aiAction, playerPending);
+    logger.logStep(aiAction, playerPending, aiSpend, plSpend);
     setState(s2);
-    appendEvents(evs);
+    appendEvents(evs as BattleEvent[]);
     setPlayerPending(null);
+    setPlayerAttackSpend(1);
 
     if (done) {
       const outcome: Result["outcome"] = r === 0 ? "draw" : r > 0 ? "win" : "lose";
@@ -166,15 +177,20 @@ export function useGameEngine(opts: EngineOptions) {
     }
 
     if (mounted.current) setIsResolving(false);
-  }, [appendEvents, chooseAIAction, isOver, isResolving, logger, playerPending, qTable?.version, state, opts]);
+  }, [appendEvents, chooseAIAction, isOver, isResolving, logger, playerAttackSpend, playerPending, state, qTable?.version, opts]);
 
   const playerPick = useCallback(
     (a: Action) => {
       if (isResolving || isOver) return;
       setPlayerPending(a);
+      if (a !== Action.ATTACK) setPlayerAttackSpend(1);
     },
     [isResolving, isOver]
   );
+
+  const setAttackSpend = useCallback((n: number) => {
+    setPlayerAttackSpend(n);
+  }, []);
 
   const confirm = useCallback(() => {
     if (playerPending != null) resolveTurn();
@@ -186,6 +202,7 @@ export function useGameEngine(opts: EngineOptions) {
     setIsOver(false);
     setResult(null);
     setPlayerPending(null);
+    setPlayerAttackSpend(1);
   }, []);
 
   const hpBarColor = useCallback((ratio: number) => {
@@ -201,6 +218,8 @@ export function useGameEngine(opts: EngineOptions) {
     hpBarColor,
     events,
     playerPending,
+    playerAttackSpend,
+    setAttackSpend,
     isResolving,
     isOver,
     result,
@@ -212,6 +231,6 @@ export function useGameEngine(opts: EngineOptions) {
     restart,
     chooseAIAction,
     setVolume: (v: number) => audio.setVolume(v),
-    setEpsilon: () => {}, // conservé pour compat API externe si utilisée
+    setEpsilon: () => {}, // compat
   };
 }

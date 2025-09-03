@@ -1,38 +1,35 @@
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 type Step = { aAI: 0 | 1 | 2; aPL: 0 | 1 | 2 };
+type LoggedStep = { aAI: 0 | 1 | 2; aPL: 0 | 1 | 2; nAI?: number; nPL?: number };
 
-export function useEpisodeLogger(clientVersion?: number) {
-  const stepsRef = useRef<Step[]>([]);
+export function useEpisodeLogger(version: number) {
+  const steps = useRef<LoggedStep[]>([]);
   const [busy, setBusy] = useState(false);
-  const [lastVersion, setLastVersion] = useState<number | null>(null);
 
-  const logStep = useCallback((aAI: 0 | 1 | 2, aPL: 0 | 1 | 2) => {
-    stepsRef.current.push({ aAI, aPL });
-  }, []);
+  function logStep(aAI: 0 | 1 | 2, aPL: 0 | 1 | 2, nAI?: number, nPL?: number) {
+    steps.current.push({ aAI, aPL, nAI, nPL });
+  }
 
-  const reset = useCallback(() => {
-    stepsRef.current = [];
-  }, []);
-
-  const submit = useCallback(async () => {
-    if (busy) return;
+  async function submit() {
+    if (steps.current.length === 0) return null;
+    const payload = { clientVersion: version, steps: steps.current };
     setBusy(true);
     try {
       const res = await fetch("/api/episode", {
         method: "POST",
+        body: JSON.stringify(payload),
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientVersion, steps: stepsRef.current }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "Server error");
-      setLastVersion(json.newVersion ?? null);
-      stepsRef.current = [];
+      const json = await res.json().catch(() => null);
+      steps.current = [];
       return json;
+    } catch {
+      return null;
     } finally {
       setBusy(false);
     }
-  }, [busy, clientVersion]);
+  }
 
-  return { logStep, submit, reset, busy, lastVersion };
+  return { logStep, submit, busy, lastVersion: version };
 }

@@ -37,39 +37,37 @@ export function BattleLog() {
   );
 }
 
-function LogEntry({ entry }: { entry: LogEvent }) {
-  switch (entry.type) {
-    case "attack":
-      return (
-        <p>
-          <strong>{entry.who === "player" ? "Vous" : "AI"}</strong> attaque :
-          &nbsp;-{entry.dmg} HP
-        </p>
-      );
-    case "defend":
-      return (
-        <p>
-          <strong>{entry.who === "player" ? "Vous" : "AI"}</strong> défend.
-        </p>
-      );
-    case "charge":
-      return (
-        <p>
-          <strong>{entry.who === "player" ? "Vous" : "AI"}</strong> charge.
-        </p>
-      );
-    case "result":
-      return (
-        <p className="font-semibold">
-          Résultat:&nbsp;
-          {entry.outcome === "win"
-            ? "Victoire"
-            : entry.outcome === "lose"
-            ? "Défaite"
-            : "Égalité"}
-        </p>
-      );
-    default:
-      return null;
+function LogEntry({ entry }: { entry: LogEvent | (LogEvent & { spend?: number }) }) {
+  if (entry.type === "attack") {
+    return (
+      <p>
+        <strong>{entry.who === "player" ? "Vous" : "AI"}</strong> attaque :
+        &nbsp;-{entry.dmg} HP
+      </p>
+    );
+  } else if (entry.type === "defend") {
+    return (
+      <p>
+        <strong>{entry.who === "player" ? "Vous" : "AI"}</strong> défend.
+      </p>
+    );
+  } else if (entry.type === "charge") {
+    return (
+      <p>
+        <strong>{entry.who === "player" ? "Vous" : "AI"}</strong> charge.
+      </p>
+    );
+  } else if (entry.type === "result") {
+    return (
+      <p className="font-semibold">
+        Résultat:&nbsp;
+        {entry.outcome === "win"
+          ? "Victoire"
+          : entry.outcome === "lose"
+          ? "Défaite"
+          : "Égalité"}
+      </p>
+    );
   }
+  return null;
 }
