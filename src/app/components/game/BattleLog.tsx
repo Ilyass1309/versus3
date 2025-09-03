@@ -5,10 +5,10 @@ import { ScrollArea } from "./ScrollAreaInternal";
 
 type LogEvent = Extract<
   BattleEvent,
-  | { type: "attack" }
-  | { type: "defend" }
-  | { type: "charge" }
-  | { type: "result" }
+  | { type: "attack"; who: "ai" | "player"; dmg: number }
+  | { type: "defend"; who: "ai" | "player" }
+  | { type: "charge"; who: "ai" | "player" }
+  | { type: "result"; outcome: "win" | "lose" | "draw" }
 >;
 
 export function BattleLog() {
