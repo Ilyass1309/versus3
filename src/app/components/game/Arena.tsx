@@ -6,13 +6,24 @@ import { Sword, Shield, Battery } from "lucide-react";
 
 function ChargePills({ count }: { count: number }) {
   return (
-    <div className="flex gap-1">
-      {Array.from({ length: 3 }, (_, i) => (
-        <span
-          key={i}
-            className={`h-3 w-3 rounded-sm ${i < count ? "bg-accent" : "bg-white/10"}`}
-        />
-      ))}
+    <div className="flex items-center gap-1">
+      {Array.from({ length: 3 }, (_, i) => {
+        const active = i < count;
+        return (
+          <span
+            key={i}
+            className={
+              "h-3 w-3 rounded-sm transition-colors " +
+              (active
+                ? "bg-lime-400/80 shadow-[0_0_4px_#bef264]"
+                : "bg-white/10")
+            }
+          />
+        );
+      })}
+      <span className="ml-1 text-[10px] text-slate-400 tabular-nums">
+        {count}/3
+      </span>
     </div>
   );
 }
@@ -56,16 +67,16 @@ function HPBar({ hp, max, label, gradient }: HPBarProps) {
 
 export function Arena() {
   const { engine, events } = useGame();
+  // Mapping cohérent: e* = joueur, p* = IA
   const playerHP = engine.state.eHP;
   const aiHP = engine.state.pHP;
+  const playerCharge = engine.state.eCharge;
+  const aiCharge = engine.state.pCharge;
   const lastTurn = events
     .filter(
       (e): e is Extract<BattleEvent, { type: "turn" }> => e.type === "turn"
     )
     .at(-1);
-
-  const playerCharge = engine.state.eCharge;
-  const aiCharge = engine.state.pCharge;
 
   return (
     <section
@@ -82,7 +93,6 @@ export function Arena() {
         </div>
         <FighterSprite who="player" actionPending={engine.playerPending} />
       </div>
-
       <div className="flex flex-col gap-4 justify-between">
         <div className="text-right">
           <HPBar hp={aiHP} max={20} label="Adversaire" />
@@ -93,7 +103,6 @@ export function Arena() {
         </div>
         <FighterSprite who="ai" actionPending={null} />
       </div>
-
       <div className="col-span-full mt-4 text-[11px] text-slate-500 flex justify-between">
         <span>Tour: {lastTurn ? lastTurn.n : 0}</span>
       </div>

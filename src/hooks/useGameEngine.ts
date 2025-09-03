@@ -155,7 +155,9 @@ export function useGameEngine(opts: EngineOptions) {
     setPlayerAttackSpend(1);
 
     if (done) {
-      const outcome: Result["outcome"] = r === 0 ? "draw" : r > 0 ? "win" : "lose";
+      // r > 0  => IA gagne ; r < 0 => joueur gagne
+      const outcome: Result["outcome"] =
+        r === 0 ? "draw" : r > 0 ? "lose" : "win";
       appendEvents([{ type: "result", outcome }]);
       setIsOver(true);
       setResult({ outcome, turns: s2.turn });
