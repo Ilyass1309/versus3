@@ -11,12 +11,34 @@ export default function GameUI() {
   const { logStep, submit, busy, lastVersion } = useEpisodeLogger(1);
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
-      const res = await fetch("/api/qtable");
-      const json = await res.json();
-      setVersion(json.version);
-      setQSize(Object.keys(json.q ?? {}).length);
+      try {
+        const res = await fetch("/api/qtable", { cache: "no-store" });
+        const raw = await res.text(); // éviter res.json() direct
+        if (!res.ok) {
+          console.error("qtable fetch error", res.status, raw);
+          return;
+        }
+        if (!raw) {
+          console.error("qtable empty response body");
+          return;
+        }
+        let json: any;
+        try {
+          json = JSON.parse(raw);
+        } catch (e) {
+          console.error("Invalid JSON:", raw);
+          return;
+        }
+        if (cancelled) return;
+        setVersion(json.version);
+        setQSize(Object.keys(json.q ?? {}).length);
+      } catch (e) {
+        console.error("fetch /api/qtable failed", e);
+      }
     })();
+    return () => { cancelled = true; };
   }, []);
 
   const simulateMatch = async () => {
