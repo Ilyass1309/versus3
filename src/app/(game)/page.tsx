@@ -1,4 +1,5 @@
-"use client";
+export const dynamic = "force-dynamic"; // évite tentative de prerender statique (optionnel)
+
 import { GameShell } from "../components/game/GameShell";
 import { GameHeader } from "../components/game/GameHeader";
 import { Arena } from "../components/game/Arena";
