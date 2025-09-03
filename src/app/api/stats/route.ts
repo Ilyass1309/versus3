@@ -44,12 +44,19 @@ let pool: Pool | null = null;
 async function getPool(): Promise<Pool | null> {
   if (pool) return pool;
   try {
-    const mod = await import("@/lib/db").catch(() => null);
-    if (mod && "pool" in mod && (mod as any).pool) {
-      pool = (mod as any).pool as Pool;
+    const mod: unknown = await import("@/lib/db").catch(() => null);
+    if (
+      mod &&
+      typeof mod === "object" &&
+      "pool" in mod &&
+      (mod as { pool?: Pool }).pool
+    ) {
+      pool = (mod as { pool?: Pool }).pool ?? null;
       return pool;
     }
-  } catch {}
+  } catch {
+    // ignore
+  }
   if (!process.env.DATABASE_URL) return null;
   const { Pool } = await import("pg");
   pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 5 });

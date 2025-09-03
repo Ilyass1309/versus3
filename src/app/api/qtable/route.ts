@@ -144,7 +144,7 @@ async function bootstrapIfNeeded(p: Pool): Promise<boolean> {
     );
     await p.query("COMMIT");
     return true;
-  } catch (e) {
+  } catch {
     await p.query("ROLLBACK").catch(() => {});
     // Silent fail -> fallback file still served
     return false;
