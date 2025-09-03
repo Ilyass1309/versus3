@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react";
 import { useEpisodeLogger } from "@/hooks/useEpisodeLogger";
 
-type QRow = [number, number, number];
+type QTable = Record<string, [number, number, number]>;
+
+interface QTableApiResponse {
+  version: number;
+  q: QTable;
+  error?: string;
+}
 
 export default function GameUI() {
   const [version, setVersion] = useState<number | null>(null);
@@ -15,7 +21,7 @@ export default function GameUI() {
     (async () => {
       try {
         const res = await fetch("/api/qtable", { cache: "no-store" });
-        const raw = await res.text(); // éviter res.json() direct
+        const raw = await res.text();
         if (!res.ok) {
           console.error("qtable fetch error", res.status, raw);
           return;
@@ -24,21 +30,34 @@ export default function GameUI() {
           console.error("qtable empty response body");
           return;
         }
-        let json: any;
+        let parsed: unknown;
         try {
-          json = JSON.parse(raw);
-        } catch (e) {
-          console.error("Invalid JSON:", raw);
+          parsed = JSON.parse(raw);
+        } catch (err) {
+          console.error("Invalid JSON parse", err, raw);
           return;
         }
         if (cancelled) return;
+        // Validation minimale
+        if (
+          !parsed ||
+          typeof parsed !== "object" ||
+          typeof (parsed as any).version !== "number" ||
+          typeof (parsed as any).q !== "object"
+        ) {
+          console.error("Invalid response structure", parsed);
+          return;
+        }
+        const json = parsed as QTableApiResponse;
         setVersion(json.version);
         setQSize(Object.keys(json.q ?? {}).length);
-      } catch (e) {
-        console.error("fetch /api/qtable failed", e);
+      } catch (err) {
+        console.error("fetch /api/qtable failed", err);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const simulateMatch = async () => {
@@ -55,8 +74,12 @@ export default function GameUI() {
   return (
     <div style={{ border: "1px solid #ddd", padding: 16, borderRadius: 8 }}>
       <h2>Demo — Q-learning duel</h2>
-      <p>Q-table version: <b>{version ?? "..."}</b></p>
-      <p>Taille Q-table (états): <b>{qSize}</b></p>
+      <p>
+        Q-table version: <b>{version ?? "..."}</b>
+      </p>
+      <p>
+        Taille Q-table (états): <b>{qSize}</b>
+      </p>
 
       <button onClick={simulateMatch} disabled={busy} style={{ padding: "8px 12px" }}>
         {busy ? "Envoi..." : "Simuler un match (random)"}
@@ -69,7 +92,9 @@ export default function GameUI() {
       )}
 
       <div style={{ marginTop: 16 }}>
-        <a href="/api/qtable/export" target="_blank" rel="noreferrer">Exporter la Q-table (JSON)</a>
+        <a href="/api/qtable/export" target="_blank" rel="noreferrer">
+          Exporter la Q-table (JSON)
+        </a>
       </div>
     </div>
   );
