@@ -6,9 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "next lint",
+    "db:init": "psql \"$POSTGRES_URL_NON_POOLING\" -f scripts/sql/001_init.sql",
+    "db:seed": "psql \"$POSTGRES_URL_NON_POOLING\" -f scripts/sql/002_seed.sql"
+
   },
   "dependencies": {
+    "@vercel/postgres": "^0.10.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "next": "15.5.2"
