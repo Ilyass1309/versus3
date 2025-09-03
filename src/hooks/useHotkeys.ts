@@ -1,15 +1,14 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, type DependencyList } from "react";
 
 type Handler = (e: KeyboardEvent) => void;
 
-export function useHotkeys(map: Record<string, Handler>, deps: any[] = []) {
+export function useHotkeys(map: Record<string, Handler>, deps: DependencyList = []) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const k = e.key.toLowerCase();
-      if (map[k]) {
-        map[k](e);
-      }
+      const fn = map[k];
+      if (fn) fn(e);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

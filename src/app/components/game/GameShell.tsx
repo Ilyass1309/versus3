@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState } from "react";
 import { useGameEngine } from "@/hooks/useGameEngine";
 import { BattleEvent, Result } from "@/hooks/useGameEngine";
 
@@ -13,7 +13,6 @@ interface Settings {
 }
 
 const SettingsCtx = createContext<Settings | null>(null);
-
 export function useSettings() {
   const ctx = useContext(SettingsCtx);
   if (!ctx) throw new Error("Settings context");

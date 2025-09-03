@@ -1,5 +1,10 @@
 type SfxName = "attack" | "defend" | "charge" | "win" | "lose";
 
+interface AudioCtorWindow {
+  AudioContext?: typeof AudioContext;
+  webkitAudioContext?: typeof AudioContext;
+}
+
 class AudioManager {
   private ctx: AudioContext | null = null;
   private volume = 0.6;
@@ -9,7 +14,12 @@ class AudioManager {
   }
 
   private ensureCtx() {
-    if (!this.ctx) this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    if (!this.ctx) {
+      const w = window as unknown as AudioCtorWindow;
+      const Ctor = w.AudioContext || w.webkitAudioContext;
+      if (!Ctor) return;
+      this.ctx = new Ctor();
+    }
   }
 
   play(name: SfxName) {
@@ -36,7 +46,7 @@ class AudioManager {
       osc.start(now);
       osc.stop(now + 0.32);
     } catch {
-      /* silent */
+      /* ignore */
     }
   }
 }

@@ -70,7 +70,7 @@ export function SettingsSheet() {
             </button>
           </div>
           <p className="text-[11px] text-slate-400">
-            Les paramètres sont locaux et ne changent pas l'apprentissage côté serveur (épisodes envoyés seulement).
+            Les paramètres sont locaux et ne changent pas l&apos;apprentissage côté serveur (épisodes envoyés seulement).
           </p>
         </div>
       </DialogContent>
