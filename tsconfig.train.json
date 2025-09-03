@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "noEmit": false,
+    "outDir": "dist-train",
+    "allowJs": false,
+    "resolveJsonModule": true,
+    "esModuleInterop": true
+  },
+  "include": [
+    "scripts/train.ts",
+    "src/lib/rl/**/*.ts"
+  ]
+}
