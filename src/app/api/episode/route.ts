@@ -6,12 +6,18 @@ import type { Pool } from "pg";
 interface Step {
   aAI: 0 | 1 | 2;
   aPL: 0 | 1 | 2;
+  // Nouveaux champs (HP restants après le tour)
+  hpAI?: number;
+  hpPL?: number;
+  spendAI?: number;
+  spendPL?: number;
   nAI?: number;
   nPL?: number;
 }
 interface EpisodePayload {
   clientVersion?: number;
   steps?: Step[];
+  result?: "player" | "ai" | "draw";
 }
 
 let pool: Pool | null = null;
@@ -38,37 +44,103 @@ async function ensureTable(p: Pool) {
   `);
 }
 
-function computeOutcome(steps: Step[]): { result: "player" | "ai" | "draw"; reward: number } {
-  const last = steps[steps.length - 1];
-  if (last) {
-    const { nAI, nPL } = last;
-    if (typeof nAI === "number" && typeof nPL === "number") {
-      if (nAI <= 0 && nPL > 0) return { result: "player", reward: 1 };
-      if (nPL <= 0 && nAI > 0) return { result: "ai", reward: -1 };
-      if (nAI <= 0 && nPL <= 0) return { result: "draw", reward: 0 };
-    }
+function lastHP(step?: Step): { hpAI?: number; hpPL?: number } {
+  if (!step) return {};
+  if (typeof step.hpAI === "number" || typeof step.hpPL === "number") {
+    return { hpAI: step.hpAI, hpPL: step.hpPL };
   }
+  if (typeof step.nAI === "number" || typeof step.nPL === "number") {
+    return { hpAI: step.nAI, hpPL: step.nPL };
+  }
+  return {};
+}
+
+function inferOutcome(steps: Step[]): { result: "player" | "ai" | "draw"; reward: number } {
+  const last = steps[steps.length - 1];
+  if (!last) return { result: "draw", reward: 0 };
+  const { hpAI, hpPL } = lastHP(last);
+
+  if (typeof hpAI === "number" && typeof hpPL === "number") {
+    if (hpAI <= 0 && hpPL > 0) return { result: "player", reward: 1 };
+    if (hpPL <= 0 && hpAI > 0) return { result: "ai", reward: -1 };
+    if (hpAI <= 0 && hpPL <= 0) return { result: "draw", reward: 0 };
+    return { result: "draw", reward: 0 }; // non terminal (devrait idéalement ne pas être soumis)
+  }
+
+  // Pas d'info fiable → neutre
   return { result: "draw", reward: 0 };
 }
 
+function normalizeSteps(raw: Step[]): Step[] {
+  // Optionnel: filtrer valeurs absurdes
+  return raw;
+}
+
 export async function POST(req: NextRequest) {
-  let raw: unknown;
+  let body: EpisodePayload;
   try {
-    raw = await req.json();
+    body = await req.json();
   } catch {
-    return NextResponse.json({ error: "JSON invalide (corps vide ou mal formé)" }, { status: 400 });
+    return NextResponse.json({ error: "JSON invalide" }, { status: 400 });
   }
 
-  const body = raw as EpisodePayload;
-  const steps = Array.isArray(body.steps) ? body.steps : [];
-  const clientVersion = typeof body.clientVersion === "number" ? body.clientVersion : 0;
-
+  const steps = Array.isArray(body.steps) ? normalizeSteps(body.steps) : [];
   if (steps.length === 0) {
-    // On log mais on ne renvoie plus systématiquement 400 (évite spam console)
-    return NextResponse.json({ ok: false, error: "Aucun step reçu", receivedSteps: steps.length }, { status: 400 });
+    return NextResponse.json({ error: "Aucun step reçu" }, { status: 400 });
   }
 
-  const { result, reward } = computeOutcome(steps);
+  // Validation simple: HP ne devraient pas remonter après avoir atteint 0
+  let inconsistent = false;
+  let minAI = Infinity;
+  let minPL = Infinity;
+  for (const s of steps) {
+    const { hpAI, hpPL } = lastHP(s);
+    if (typeof hpAI === "number") {
+      if (hpAI < minAI) minAI = hpAI;
+      else if (hpAI > minAI && minAI <= 0) inconsistent = true;
+    }
+    if (typeof hpPL === "number") {
+      if (hpPL < minPL) minPL = hpPL;
+      else if (hpPL > minPL && minPL <= 0) inconsistent = true;
+    }
+  }
+
+  let result: "player" | "ai" | "draw";
+  let reward: number;
+
+  if (body.result) {
+    result = body.result;
+    reward = result === "player" ? 1 : result === "ai" ? -1 : 0;
+  } else {
+    ({ result, reward } = inferOutcome(steps));
+  }
+
+  // Si incohérence détectée et résultat = draw mais dernier HP <=0 côté IA uniquement → corriger
+  if (result === "draw") {
+    const last = steps[steps.length - 1];
+    const { hpAI, hpPL } = lastHP(last);
+    if (
+      !body.result &&
+      typeof hpAI === "number" &&
+      typeof hpPL === "number" &&
+      hpAI <= 0 &&
+      hpPL > 0
+    ) {
+      result = "player";
+      reward = 1;
+    } else if (
+      !body.result &&
+      typeof hpAI === "number" &&
+      typeof hpPL === "number" &&
+      hpPL <= 0 &&
+      hpAI > 0
+    ) {
+      result = "ai";
+      reward = -1;
+    }
+  }
+
+  const clientVersion = typeof body.clientVersion === "number" ? body.clientVersion : 0;
 
   const p = await getPool();
   if (!p) {
@@ -79,7 +151,8 @@ export async function POST(req: NextRequest) {
       reward,
       steps: steps.length,
       clientVersion,
-      note: "Pas de DB (DATABASE_URL absent)",
+      inconsistent,
+      note: "Pas de DATABASE_URL"
     });
   }
 
@@ -97,6 +170,7 @@ export async function POST(req: NextRequest) {
       reward,
       steps: steps.length,
       clientVersion,
+      inconsistent
     });
   } catch (e) {
     return NextResponse.json(
