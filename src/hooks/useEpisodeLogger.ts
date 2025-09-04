@@ -1,34 +1,50 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useCallback } from "react";
 
 type LoggedStep = { aAI: 0|1|2; aPL: 0|1|2; nAI?: number; nPL?: number };
 
 export function useEpisodeLogger(version: number) {
   const steps = useRef<LoggedStep[]>([]);
   const [busy, setBusy] = useState(false);
+  const submittedRef = useRef(false);
 
   function logStep(aAI: 0|1|2, aPL: 0|1|2, nAI?: number, nPL?: number) {
     steps.current.push({ aAI, aPL, nAI, nPL });
   }
 
-  async function submit() {
-    if (steps.current.length === 0) return null;
-    const payload = { clientVersion: version, steps: steps.current };
+  const submit = useCallback(async () => {
+    if (submittedRef.current) return;
+    if (steps.current.length === 0) return;
+    submittedRef.current = true;
     setBusy(true);
     try {
-      const res = await fetch("/api/episode", {
+      await fetch("/api/episode", {
         method: "POST",
-        body: JSON.stringify(payload),
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientVersion: version,
+            steps: steps.current
+        })
       });
-      const json = await res.json().catch(() => null);
-      steps.current = [];
-      return json;
     } catch {
-      return null;
+      // ignore
     } finally {
       setBusy(false);
+      // Ne pas vider steps si tu veux debugger; sinon:
+      // steps.current = [];
     }
+  }, [version]);
+
+  // Réinitialiser pour une nouvelle partie si nécessaire
+  function resetEpisode() {
+    steps.current = [];
+    submittedRef.current = false;
   }
 
-  return { logStep, submit, busy, lastVersion: version };
+  return {
+    logStep,
+    submit,
+    resetEpisode,
+    stepsCount: () => steps.current.length,
+    busy,
+  };
 }

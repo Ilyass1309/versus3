@@ -1,8 +1,8 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { stepWithPower, encodeState, MAX_HP, initialState } from "@/lib/rl/env";
-import { Action, State } from "@/lib/rl/types";
-import { useEpisodeLogger } from "@/hooks/useEpisodeLogger";
+import { Action, State } from "@/lib/rl/types"; 
+import { useEpisodeLogger } from "./useEpisodeLogger";
 import { audio } from "@/lib/audio";
 
 export type BattleEvent =
@@ -45,7 +45,8 @@ export function useGameEngine(opts: EngineOptions) {
     ai: { action: Action; spend: number };
   } | null>(null);
 
-  const logger = useEpisodeLogger(qTable?.version ?? 0);
+  const qVersion = qTable?.version ?? 0;
+  const episodeLogger = useEpisodeLogger(qVersion);
   const mounted = useRef(true);
 
   // Load Q-table on mount
@@ -144,7 +145,7 @@ export function useGameEngine(opts: EngineOptions) {
     ]);
 
     // On log maintenant (serveur recalculera)
-    logger.logStep(aiAction, playerPending, aiSpend, plSpend);
+    episodeLogger.logStep(aiAction, playerPending, aiSpend, plSpend);
 
     // Après courte animation (~1s) on résout les dégâts
     setTimeout(() => {
@@ -206,16 +207,9 @@ export function useGameEngine(opts: EngineOptions) {
         audio.play(outcome === "win" ? "win" : "lose");
         (async () => {
           try {
-            const res = await logger.submit();
-            if (res?.newVersion && res.newVersion !== qTable?.version) {
-              const qtRes = await fetch("/api/qtable", { cache: "no-store" });
-              if (qtRes.ok) {
-                const json = await qtRes.json().catch(() => null);
-                if (json && mounted.current) {
-                  setQTable({ version: json.version, q: json.q || {} });
-                }
-              }
-            }
+            // CORRECTION: logger -> episodeLogger (logger était undefined)
+            await episodeLogger.submit();
+            // L’endpoint /api/episode ne renvoie pas de newVersion; on retire la logique de rafraîchissement Q-table
           } catch {
             opts.onError?.("Erreur en soumettant l'épisode");
           }
@@ -229,7 +223,7 @@ export function useGameEngine(opts: EngineOptions) {
     chooseAIAction,
     isOver,
     isResolving,
-    logger,
+    episodeLogger,
     playerAttackSpend,
     playerPending,
     state,
@@ -237,14 +231,11 @@ export function useGameEngine(opts: EngineOptions) {
     opts,
   ]);
 
-  const playerPick = useCallback(
-    (a: Action) => {
-      if (isResolving || isOver) return;
-      setPlayerPending(a);
-      if (a !== Action.ATTACK) setPlayerAttackSpend(1);
-    },
-    [isResolving, isOver]
-  );
+  // Ajout: fonction de sélection d'action joueur
+  const playerPick = useCallback((a: Action) => {
+    if (isResolving || isOver) return;
+    setPlayerPending(a);
+  }, [isResolving, isOver]);
 
   const setAttackSpend = useCallback((n: number) => {
     setPlayerAttackSpend(n);
@@ -258,7 +249,9 @@ export function useGameEngine(opts: EngineOptions) {
     setPlayerPending(null);
     setPlayerAttackSpend(1);
     setLastReveal(null);
-  }, []);
+    // Réinitialise le logger pour une nouvelle partie
+    episodeLogger.resetEpisode();
+  }, [episodeLogger]);
 
   const hpBarColor = useCallback((ratio: number) => {
     if (ratio > 0.5) return "bg-green-500";
@@ -266,22 +259,20 @@ export function useGameEngine(opts: EngineOptions) {
     return "bg-red-500";
   }, []);
 
-  // ...dans useEffect de chargement initial (adapter si déjà présent)...
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/qtable", { cache: "no-store" });
-        if (!res.ok) return;
-        const json = await res.json();
-        if (!cancelled && json?.q) {
-          setQTable({ version: json.version, q: json.q });
-        }
-      } catch (e) {
-        console.warn("Q-table load failed", (e as Error).message);
+  // Volume (ajout)
+  const volumeRef = useRef(0.6);
+  const setVolume = useCallback((v: number) => {
+    volumeRef.current = Math.min(1, Math.max(0, v));
+    // Supporte différentes implémentations possibles de audio
+    try {
+      if (typeof (audio as any).setVolume === "function") {
+        (audio as any).setVolume(volumeRef.current);
+      } else if ("volume" in audio) {
+        (audio as any).volume = volumeRef.current;
       }
-    })();
-    return () => { cancelled = true; };
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   return {
@@ -298,14 +289,12 @@ export function useGameEngine(opts: EngineOptions) {
     isOver,
     result,
     serverStatus,
-    // --- propriétés manquantes ajoutées ---
-    qVersion: qTable?.version ?? null,
-    setVolume: (v: number) => audio.setVolume(v),
-    // --------------------------------------
-    playerPick,
     confirm,
     restart,
-    chooseAIAction,
-    setEpsilon: () => {}, // compat si utilisé ailleurs
+    // exposer volume setter pour GameShell
+    setVolume,
+    // si tu veux lire la valeur courante ailleurs:
+    volume: volumeRef.current,
+    playerPick,
   };
 }

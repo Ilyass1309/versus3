@@ -20,7 +20,8 @@ function isQTableApiResponse(v: unknown): v is QTableApiResponse {
 export default function GameUI() {
   const [version, setVersion] = useState<number | null>(null);
   const [qSize, setQSize] = useState<number>(0);
-  const { logStep, submit, busy, lastVersion } = useEpisodeLogger(1);
+
+  const { logStep, submit, busy } = useEpisodeLogger(1);
 
   useEffect(() => {
     let cancelled = false;
@@ -28,26 +29,14 @@ export default function GameUI() {
       try {
         const res = await fetch("/api/qtable", { cache: "no-store" });
         const raw = await res.text();
-        if (!res.ok || !raw) {
-          console.error("qtable fetch error", res.status, raw);
-          return;
-        }
+        if (!res.ok || !raw) return;
         let parsed: unknown;
-        try {
-          parsed = JSON.parse(raw);
-        } catch (err) {
-          console.error("Invalid JSON parse", err);
-          return;
-        }
-        if (cancelled) return;
-        if (!isQTableApiResponse(parsed)) {
-            console.error("Invalid response structure", parsed);
-            return;
-        }
+        try { parsed = JSON.parse(raw); } catch { return; }
+        if (cancelled || !isQTableApiResponse(parsed)) return;
         setVersion(parsed.version);
         setQSize(Object.keys(parsed.q).length);
-      } catch (err) {
-        console.error("fetch /api/qtable failed", err);
+      } catch {
+        /* ignore */
       }
     })();
     return () => { cancelled = true; };
@@ -59,8 +48,7 @@ export default function GameUI() {
       const aPL = (Math.random() * 3) | 0;
       logStep(aAI as 0 | 1 | 2, aPL as 0 | 1 | 2);
     }
-    const res = await submit();
-    if (res?.newVersion) setVersion(res.newVersion);
+    await submit();
   };
 
   return (
@@ -71,11 +59,6 @@ export default function GameUI() {
       <button onClick={simulateMatch} disabled={busy} style={{ padding: "8px 12px" }}>
         {busy ? "Envoi..." : "Simuler un match (random)"}
       </button>
-      {lastVersion && (
-        <p style={{ marginTop: 8 }}>
-          Dernière version renvoyée par le serveur : <b>{lastVersion}</b>
-        </p>
-      )}
       <div style={{ marginTop: 16 }}>
         <a href="/api/qtable/export" target="_blank" rel="noreferrer">
           Exporter la Q-table (JSON)

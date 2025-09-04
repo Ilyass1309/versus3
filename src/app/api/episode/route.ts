@@ -1,98 +1,103 @@
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { stepWithPower, initialState, MAX_CHARGE, encodeState } from "@/lib/rl/env";
-import { qUpdate } from "@/lib/rl/update";
-import { withLockedQTable, logEpisode } from "@/lib/db";
-import { validateAction } from "@/lib/utils/validation";
-import { Action, State } from "@/lib/rl/types";
+import type { Pool } from "pg";
 
-type ClientStep = { aAI: 0|1|2; aPL: 0|1|2; nAI?: number; nPL?: number };
-interface EpisodeBody {
-  clientVersion?: number;
-  steps: ClientStep[];
+interface Step {
+  aAI: 0 | 1 | 2;
+  aPL: 0 | 1 | 2;
+  nAI?: number;
+  nPL?: number;
+}
+interface EpisodePayload {
+  clientVersion: number;
+  steps: Step[];
 }
 
-function normN(a: number, n: unknown): number | undefined {
-  if (a !== Action.ATTACK) return undefined;
-  if (typeof n !== "number" || !Number.isFinite(n)) return undefined;
-  if (n < 0) return 0;
-  if (n > MAX_CHARGE) return MAX_CHARGE;
-  return Math.trunc(n);
+let pool: Pool | null = null;
+async function getPool(): Promise<Pool | null> {
+  if (pool) return pool;
+  if (!process.env.DATABASE_URL) return null;
+  const { Pool } = await import("pg");
+  pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 5 });
+  return pool;
 }
 
-const MAX_STEPS_BODY = 200;
+async function ensureTable(p: Pool) {
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS episodes (
+      id BIGSERIAL PRIMARY KEY,
+      created_at TIMESTAMP DEFAULT NOW(),
+      client_version BIGINT,
+      steps JSONB NOT NULL,
+      result TEXT,
+      reward INT,
+      terminal BOOLEAN DEFAULT TRUE
+    );
+  `);
+}
+
+function computeOutcome(steps: Step[]): { result: "player" | "ai" | "draw"; reward: number } {
+  const last = steps[steps.length - 1];
+  if (last) {
+    const { nAI, nPL } = last;
+    if (typeof nAI === "number" && typeof nPL === "number") {
+      if (nAI <= 0 && nPL > 0) return { result: "player", reward: 1 };
+      if (nPL <= 0 && nAI > 0) return { result: "ai", reward: -1 };
+      if (nAI <= 0 && nPL <= 0) return { result: "draw", reward: 0 };
+    }
+  }
+  return { result: "draw", reward: 0 };
+}
 
 export async function POST(req: NextRequest) {
-  let body: EpisodeBody;
+  let payload: EpisodePayload;
   try {
-    body = await req.json();
+    payload = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    return NextResponse.json({ error: "JSON invalide" }, { status: 400 });
+  }
+  if (
+    !payload ||
+    typeof payload.clientVersion !== "number" ||
+    !Array.isArray(payload.steps) ||
+    payload.steps.length === 0
+  ) {
+    return NextResponse.json({ error: "Payload invalide" }, { status: 400 });
   }
 
-  if (!body || !Array.isArray(body.steps)) {
-    return NextResponse.json({ error: "Missing steps[]" }, { status: 400 });
-  }
-  if (body.steps.length === 0) {
-    return NextResponse.json({ error: "Empty episode" }, { status: 400 });
-  }
-  if (body.steps.length > MAX_STEPS_BODY) {
-    return NextResponse.json({ error: "Too many steps" }, { status: 413 });
-  }
+  const { steps, clientVersion } = payload;
+  const { result, reward } = computeOutcome(steps);
 
-  for (const s of body.steps) {
-    if (!validateAction(s.aAI) || !validateAction(s.aPL)) {
-      return NextResponse.json({ error: "Invalid action in steps" }, { status: 422 });
-    }
+  const p = await getPool();
+  if (!p) {
+    return NextResponse.json({
+      ok: true,
+      stored: false,
+      result,
+      reward,
+      steps: steps.length,
+    });
   }
 
-  let s = initialState();
-  const transitions: {
-    s: State;
-    a: number;
-    r: number;
-    s2: State;
-    done: boolean;
-    sKey: string;
-    s2Key: string;
-  }[] = [];
-
-  for (const st of body.steps) {
-    const sKey = encodeState(s);
-    const nAI = normN(st.aAI, st.nAI);
-    const nPL = normN(st.aPL, st.nPL);
-    const { s2, r, done } = stepWithPower(s, st.aAI, nAI, st.aPL, nPL);
-    const s2Key = encodeState(s2);
-    transitions.push({ s, a: st.aAI, r, s2, done, sKey, s2Key });
-    s = s2;
-    if (done) break;
+  try {
+    await ensureTable(p);
+    await p.query(
+      `INSERT INTO episodes (client_version, steps, result, reward, terminal)
+       VALUES ($1,$2,$3,$4,TRUE)`,
+      [clientVersion, JSON.stringify(steps), result, reward]
+    );
+    return NextResponse.json({
+      ok: true,
+      stored: true,
+      result,
+      reward,
+      steps: steps.length,
+    });
+  } catch (e) {
+    return NextResponse.json(
+      { error: "Insertion DB échouée", detail: (e as Error).message },
+      { status: 500 }
+    );
   }
-
-  const last = transitions[transitions.length - 1];
-  let reason = "completed";
-  if (!last || !last.done) {
-    reason = "not_terminal_truncated";
-  } else if (last.r > 0) {
-    reason = "ai_win";
-  } else if (last.r < 0) {
-    reason = "ai_lose";
-  }
-
-  const { version } = await withLockedQTable((q) => {
-    for (const t of transitions) {
-      qUpdate(q, t.sKey, t.a, t.r, t.s2Key, t.done);
-    }
-  });
-
-  const final = s;
-  await logEpisode({
-    clientVersion: body.clientVersion ?? null,
-    steps: body.steps,
-    turns: transitions.length,
-    aiWin: final.eHP <= 0 && final.pHP > 0,
-    reason,
-  });
-
-  return NextResponse.json({ ok: true, newVersion: version });
 }

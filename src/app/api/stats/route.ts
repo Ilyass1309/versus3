@@ -26,10 +26,11 @@ interface QTablesActiveRow {
   created_at: string;
 }
 interface EpisodesAggRow {
+  games: string | null;
   wins: string | null;
   losses: string | null;
   draws: string | null;
-  games: string | null;
+  avg_steps?: string | null;
 }
 interface RecentRow {
   d: string;
@@ -97,10 +98,11 @@ async function fetchEpisodesAgg(p: Pool) {
   try {
     const r = await p.query<EpisodesAggRow>(
       `SELECT
-         SUM(CASE WHEN reward > 0  AND terminal THEN 1 ELSE 0 END)::text AS wins,
-         SUM(CASE WHEN reward < 0  AND terminal THEN 1 ELSE 0 END)::text AS losses,
-         SUM(CASE WHEN reward = 0  AND terminal THEN 1 ELSE 0 END)::text AS draws,
-         SUM(CASE WHEN terminal THEN 1 ELSE 0 END)::text AS games
+         COUNT(*)::text                AS games,
+         SUM( (result = 'player')::int )::text AS wins,
+         SUM( (result = 'ai')::int )::text     AS losses,
+         SUM( (result = 'draw')::int )::text   AS draws,
+         AVG(jsonb_array_length(steps))::text  AS avg_steps
        FROM episodes`
     );
     const row = r.rows[0];
@@ -110,6 +112,8 @@ async function fetchEpisodesAgg(p: Pool) {
       losses: parseInt(row.losses || "0", 10),
       draws: parseInt(row.draws || "0", 10),
       games: parseInt(row.games || "0", 10),
+      // tu peux exposer avg_steps si tu ajoutes le champ dans StatsResponse
+      avg_steps: row.avg_steps ? parseFloat(row.avg_steps) : undefined,
     };
   } catch {
     return { wins: 0, losses: 0, draws: 0, games: 0 };
@@ -121,26 +125,25 @@ async function fetchRecentWinRates(p: Pool, days = 20): Promise<WinRatePoint[]> 
     const r = await p.query<RecentRow>(
       `SELECT
          DATE(created_at) AS d,
-         SUM(CASE WHEN reward > 0 AND terminal THEN 1 ELSE 0 END)::text AS wins,
-         SUM(CASE WHEN terminal THEN 1 ELSE 0 END)::text AS games
+         SUM( (result = 'player')::int )::text AS wins,
+         COUNT(*)::text AS games
        FROM episodes
        GROUP BY DATE(created_at)
        ORDER BY d DESC
        LIMIT $1`,
       [days]
     );
-    if (!r.rows || r.rows.length === 0) return [];
-    const out: WinRatePoint[] = [];
-    for (const row of r.rows) {
-      if (!row) continue;
-      const games = parseInt(row.games || "0", 10);
-      const wins = parseInt(row.wins || "0", 10);
-      out.push({
-        date: row.d,
-        winRate: games > 0 ? (wins / games) * 100 : 0,
-      });
-    }
-    return out.reverse();
+    if (!r.rows.length) return [];
+    return r.rows
+      .map(row => {
+        const games = parseInt(row.games || "0", 10);
+        const wins = parseInt(row.wins || "0", 10);
+        return {
+          date: row.d,
+          winRate: games > 0 ? (wins / games) * 100 : 0,
+        };
+      })
+      .reverse();
   } catch {
     return [];
   }
