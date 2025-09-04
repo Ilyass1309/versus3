@@ -5,6 +5,8 @@ type LoggedStep = {
   aPL: 0|1|2;
   hpAI: number;
   hpPL: number;
+  spendAI?: number;
+  spendPL?: number;
 };
 
 export function useEpisodeLogger(version: number) {
@@ -12,8 +14,15 @@ export function useEpisodeLogger(version: number) {
   const [busy, setBusy] = useState(false);
   const submittedRef = useRef(false);
 
-  function logStep(aAI: 0|1|2, aPL: 0|1|2, hpAI: number, hpPL: number) {
-    steps.current.push({ aAI, aPL, hpAI, hpPL });
+  function logStep(
+    aAI: 0|1|2,
+    aPL: 0|1|2,
+    hpAI: number,
+    hpPL: number,
+    spendAI?: number,
+    spendPL?: number
+  ) {
+    steps.current.push({ aAI, aPL, hpAI, hpPL, spendAI, spendPL });
   }
 
   const submit = useCallback(async (finalResult?: "player"|"ai"|"draw") => {

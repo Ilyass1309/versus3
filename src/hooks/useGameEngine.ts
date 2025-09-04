@@ -153,7 +153,7 @@ export function useGameEngine(opts: EngineOptions) {
     ]);
 
     // On log maintenant (serveur recalculera)
-    episodeLogger.logStep(aiAction, playerPending, aiSpend, plSpend);
+    // episodeLogger.logStep(aiAction, playerPending, aiSpend, plSpend);
 
     // Après courte animation (~1s) on résout les dégâts
     setTimeout(() => {
@@ -167,6 +167,16 @@ export function useGameEngine(opts: EngineOptions) {
 
       const dmgPlayerToAI = Math.max(0, prev.pHP - s2.pHP);
       const dmgAIToPlayer = Math.max(0, prev.eHP - s2.eHP);
+
+      // LOG CORRECT des HP réels après résolution
+      episodeLogger.logStep(
+        aiAction as 0|1|2,
+        playerPending as 0|1|2,
+        s2.pHP,      // hpAI (p* = IA)
+        s2.eHP,      // hpPL (e* = joueur)
+        aiSpend,
+        plSpend
+      );
 
       const evs: BattleEvent[] = [{ type: "turn", n: s2.turn }];
 
@@ -206,18 +216,22 @@ export function useGameEngine(opts: EngineOptions) {
       setLastReveal(null);
 
       if (done) {
-        // r > 0 => IA gagne, donc joueur perd
         const outcome: Result["outcome"] =
           r === 0 ? "draw" : r > 0 ? "lose" : "win";
+
+        // Map vers les valeurs attendues par l'API (player / ai / draw)
+        const finalResultForServer: "player" | "ai" | "draw" =
+          outcome === "win" ? "player" :
+          outcome === "lose" ? "ai" : "draw";
+
+        // Ajoute l'événement de fin
         appendEvents([{ type: "result", outcome }]);
-        setIsOver(true);
         setResult({ outcome, turns: s2.turn });
-        playSfx((outcome === "win" ? "win" : "lose") as SfxName);
+        setIsOver(true);
+
         (async () => {
           try {
-            // CORRECTION: logger -> episodeLogger (logger était undefined)
-            await episodeLogger.submit();
-            // L’endpoint /api/episode ne renvoie pas de newVersion; on retire la logique de rafraîchissement Q-table
+            await episodeLogger.submit(finalResultForServer);
           } catch {
             opts.onError?.("Erreur en soumettant l'épisode");
           }
