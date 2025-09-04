@@ -26,14 +26,16 @@ import {
 
 interface StatsPayload {
   totalGames: number;
-  totalWins: number;      // (actuel: victoires joueur)
-  totalLosses: number;    // (actuel: défaites joueur = victoires IA)
+  totalWins: number;
+  totalLosses: number;
   totalDraws: number;
-  recentWinRates: { date: string; winRate: number }[]; // (actuel: win rate joueur)
+  recentWinRates: { date: string; winRate: number }[];
   hyperparams: { alpha: number; gamma: number; epsilon: number };
   qtableSize: number;
   qVersion: number | null;
   lastUpdate: string | null;
+  reachableMaxStates: number;   // AJOUT
+  coveragePct: number;          // AJOUT
 }
 
 export default function StatsPage() {
@@ -92,6 +94,16 @@ export default function StatsPage() {
     }));
   }, [data]);
 
+  const coverageCardValue = useMemo(() => {
+    if (!data) return "…";
+    return data.coveragePct.toFixed(2) + "%";
+  }, [data]);
+
+  const coverageFooter = useMemo(() => {
+    if (!data) return "";
+    return `${data.qtableSize} / ${data.reachableMaxStates} reachable states`;
+  }, [data]);
+
   return (
     <div className="min-h-dvh px-5 py-6 md:px-10 bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 text-slate-100">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -128,7 +140,7 @@ export default function StatsPage() {
         </div>
 
         {/* Cards */}
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
           <StatsCard
             title="Total Games"
             value={loading ? "…" : data?.totalGames ?? 0}
@@ -141,16 +153,16 @@ export default function StatsPage() {
             icon={<Trophy size={20} className="text-emerald-400" />}
             footer={!loading && data ? aiWinRate.toFixed(1) + "% win rate" : ""}
           />
-            <StatsCard
-              title="AI Losses"
-              value={loading ? "…" : aiLosses}
-              icon={<Skull size={20} className="text-rose-400" />}
-              footer={
-                !loading && data
-                  ? ((aiLosses / Math.max(1, data.totalGames)) * 100).toFixed(1) + "% of games"
-                  : ""
-              }
-            />
+          <StatsCard
+            title="AI Losses"
+            value={loading ? "…" : aiLosses}
+            icon={<Skull size={20} className="text-rose-400" />}
+            footer={
+              !loading && data
+                ? ((aiLosses / Math.max(1, data.totalGames)) * 100).toFixed(1) + "% of games"
+                : ""
+            }
+          />
           <StatsCard
             title="Q-table States"
             value={loading ? "…" : data?.qtableSize ?? 0}
@@ -160,6 +172,12 @@ export default function StatsPage() {
                 ? "Version " + (data.qVersion ?? "?")
                 : ""
             }
+          />
+          <StatsCard
+            title="State Coverage"
+            value={coverageCardValue}
+            icon={<Brain size={20} className="text-fuchsia-300" />}
+            footer={coverageFooter}
           />
         </div>
 

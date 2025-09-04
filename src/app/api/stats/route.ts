@@ -1,6 +1,8 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { initialState, encodeState, stepWithPower, MAX_TURNS } from "@/lib/rl/env";
+import { Action } from "@/lib/rl/types";
 
 // Types de réponse
 interface WinRatePoint {
@@ -17,6 +19,8 @@ interface StatsResponse {
   qtableSize: number;
   qVersion: number | null;
   lastUpdate: string | null;
+  reachableMaxStates: number;     // AJOUT
+  coveragePct: number;            // AJOUT (0..100)
 }
 
 // Types des lignes SQL
@@ -175,6 +179,52 @@ async function fallbackSeed(): Promise<{
   return { size: 0, version: null, lastUpdate: null };
 }
 
+// --- Cache pour éviter de recalculer à chaque requête ---
+let reachableCache: { total: number } | null = null;
+
+function computeReachableMaxStates(): number {
+  if (reachableCache) return reachableCache.total;
+
+  const start = initialState();
+  const seen = new Set<string>();
+  const queue: typeof start[] = [start];
+
+  while (queue.length) {
+    const s = queue.shift()!;
+    const key = encodeState(s);
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    // Si terminal on n'expansionne pas
+    if (s.pHP <= 0 || s.eHP <= 0 || s.turn >= MAX_TURNS) continue;
+
+    // Toutes combinaisons d'actions IA/Joueur
+    for (let aAI = 0; aAI < 3; aAI++) {
+      for (let aPL = 0; aPL < 3; aPL++) {
+        // Dépenses possibles (si ATTACK: 0..charge, sinon 0)
+        const maxSpendAI = aAI === Action.ATTACK ? s.pCharge : 0;
+        const maxSpendPL = aPL === Action.ATTACK ? s.eCharge : 0;
+        for (let spendAI = 0; spendAI <= maxSpendAI; spendAI++) {
+          for (let spendPL = 0; spendPL <= maxSpendPL; spendPL++) {
+            const { s2 } = stepWithPower(
+              s,
+              aAI as Action,
+              spendAI,
+              aPL as Action,
+              spendPL
+            );
+            const k2 = encodeState(s2);
+            if (!seen.has(k2)) queue.push(s2);
+          }
+        }
+      }
+    }
+  }
+
+  reachableCache = { total: seen.size };
+  return reachableCache.total;
+}
+
 export async function GET() {
   const p = await getPool();
   let qtableSize = 0;
@@ -212,6 +262,11 @@ export async function GET() {
     recentWinRates = [];
   }
 
+  const reachableMaxStates = computeReachableMaxStates();
+  const coveragePct = reachableMaxStates > 0
+    ? (qtableSize / reachableMaxStates) * 100
+    : 0;
+
   const payload: StatsResponse = {
     totalGames,
     totalWins,
@@ -222,6 +277,8 @@ export async function GET() {
     qtableSize,
     qVersion,
     lastUpdate,
+    reachableMaxStates,
+    coveragePct: Number(coveragePct.toFixed(2)),
   };
 
   return NextResponse.json(payload);
