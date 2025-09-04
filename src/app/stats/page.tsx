@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { StatsCard } from "@/app/components/stats/StatsCard";
 import { motion } from "framer-motion";
@@ -12,14 +12,24 @@ import {
   CartesianGrid,
   ResponsiveContainer,
 } from "recharts";
-import { ArrowLeft, Activity, Trophy, Skull, Database, SlidersHorizontal, Save } from "lucide-react";
+import {
+  ArrowLeft,
+  Activity,
+  Trophy,
+  Skull,
+  Database,
+  SlidersHorizontal,
+  Save,
+  Brain,
+  Info,
+} from "lucide-react";
 
 interface StatsPayload {
   totalGames: number;
-  totalWins: number;
-  totalLosses: number;
+  totalWins: number;      // (actuel: victoires joueur)
+  totalLosses: number;    // (actuel: défaites joueur = victoires IA)
   totalDraws: number;
-  recentWinRates: { date: string; winRate: number }[];
+  recentWinRates: { date: string; winRate: number }[]; // (actuel: win rate joueur)
   hyperparams: { alpha: number; gamma: number; epsilon: number };
   qtableSize: number;
   qVersion: number | null;
@@ -65,6 +75,23 @@ export default function StatsPage() {
     }
   }
 
+  // --- Perspective IA ---
+  const aiWins = data?.totalLosses ?? 0;   // IA gagne quand le joueur perd
+  const aiLosses = data?.totalWins ?? 0;   // IA perd quand le joueur gagne
+  const aiWinRate = useMemo(() => {
+    if (!data || data.totalGames === 0) return 0;
+    return (aiWins / data.totalGames) * 100;
+  }, [data, aiWins]);
+
+  // Graphe: convertir winRate joueur -> winRate IA
+  const aiRecentWinRates = useMemo(() => {
+    if (!data) return [];
+    return data.recentWinRates.map(p => ({
+      date: p.date,
+      winRate: 100 - p.winRate, // inversion perspective
+    }));
+  }, [data]);
+
   return (
     <div className="min-h-dvh px-5 py-6 md:px-10 bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 text-slate-100">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -75,10 +102,11 @@ export default function StatsPage() {
               className="inline-flex items-center gap-2 text-sm px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 transition focus:outline-none focus-visible:ring ring-indigo-400/60"
             >
               <ArrowLeft size={16} />
-              Retour
+              Back
             </button>
-            <h1 className="text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 to-fuchsia-300">
-              Game Analytics
+            <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 to-fuchsia-300">
+              <Brain size={20} className="opacity-80" />
+              AI Analytics
             </h1>
           </div>
           <button
@@ -90,6 +118,15 @@ export default function StatsPage() {
           </button>
         </div>
 
+        <div className="text-[11px] text-slate-400 flex items-start gap-2 leading-relaxed max-w-3xl">
+            <Info size={14} className="mt-[2px] shrink-0" />
+            <p>
+              Toutes les métriques sont montrées du point de vue de l&apos;IA.
+              AI Wins = parties où l&apos;IA bat le joueur. AI Losses = parties où le joueur gagne.
+              Le graphique affiche le taux de victoire de l&apos;IA (inverse de celui du joueur).
+            </p>
+        </div>
+
         {/* Cards */}
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           <StatsCard
@@ -99,25 +136,21 @@ export default function StatsPage() {
             footer={!loading && data ? `${data.totalDraws} draws` : ""}
           />
           <StatsCard
-            title="Wins"
-            value={loading ? "…" : data?.totalWins ?? 0}
+            title="AI Wins"
+            value={loading ? "…" : aiWins}
             icon={<Trophy size={20} className="text-emerald-400" />}
-            footer={
-              !loading && data
-                ? ((data.totalWins / Math.max(1, data.totalGames)) * 100).toFixed(1) + "% win rate"
-                : ""
-            }
+            footer={!loading && data ? aiWinRate.toFixed(1) + "% win rate" : ""}
           />
-          <StatsCard
-            title="Losses"
-            value={loading ? "…" : data?.totalLosses ?? 0}
-            icon={<Skull size={20} className="text-rose-400" />}
-            footer={
-              !loading && data
-                ? ((data.totalLosses / Math.max(1, data.totalGames)) * 100).toFixed(1) + "% of games"
-                : ""
-            }
-          />
+            <StatsCard
+              title="AI Losses"
+              value={loading ? "…" : aiLosses}
+              icon={<Skull size={20} className="text-rose-400" />}
+              footer={
+                !loading && data
+                  ? ((aiLosses / Math.max(1, data.totalGames)) * 100).toFixed(1) + "% of games"
+                  : ""
+              }
+            />
           <StatsCard
             title="Q-table States"
             value={loading ? "…" : data?.qtableSize ?? 0}
@@ -137,53 +170,52 @@ export default function StatsPage() {
           className="rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-xl p-6 shadow"
         >
           <h2 className="text-sm font-semibold mb-4 tracking-wide text-slate-200">
-            Win Rate Evolution
+            AI Win Rate Evolution
           </h2>
-            <div className="h-72 w-full">
-              {loading || !data ? (
-                <div className="w-full h-full animate-pulse rounded-lg bg-white/5" />
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={data.recentWinRates}>
-                    <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
-                    <XAxis
-                      dataKey="date"
-                      stroke="#94a3b8"
-                      fontSize={11}
-                      tickMargin={8}
-                      minTickGap={16}
-                    />
-                    <YAxis
-                      stroke="#94a3b8"
-                      fontSize={11}
-                      tickFormatter={(v) => v + "%"}
-                      domain={[0, 100]}
-                      width={40}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        background: "rgba(15,23,42,0.85)",
-                        border: "1px solid rgba(255,255,255,0.1)",
-                        borderRadius: "8px",
-                        fontSize: "12px",
-                      }}
-                      labelStyle={{ color: "#cbd5e1" }}
-                      // éviter 'any'
-                      formatter={(value: number) => [`${value.toFixed(1)}%`, "Win Rate"]}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="winRate"
-                      stroke="#34d399"
-                      strokeWidth={2}
-                      dot={false}
-                      activeDot={{ r: 4 }}
-                      isAnimationActive
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
-            </div>
+          <div className="h-72 w-full">
+            {loading || !data ? (
+              <div className="w-full h-full animate-pulse rounded-lg bg-white/5" />
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={aiRecentWinRates}>
+                  <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#94a3b8"
+                    fontSize={11}
+                    tickMargin={8}
+                    minTickGap={16}
+                  />
+                  <YAxis
+                    stroke="#94a3b8"
+                    fontSize={11}
+                    tickFormatter={(v) => v + "%"}
+                    domain={[0, 100]}
+                    width={40}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "rgba(15,23,42,0.85)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                    }}
+                    labelStyle={{ color: "#cbd5e1" }}
+                    formatter={(value: number) => [`${value.toFixed(1)}%`, "AI Win Rate"]}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="winRate"
+                    stroke="#34d399"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                    isAnimationActive
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </div>
         </motion.div>
 
         {/* Hyperparams */}
@@ -195,7 +227,7 @@ export default function StatsPage() {
           <div className="flex items-center gap-2">
             <SlidersHorizontal size={18} />
             <h2 className="text-sm font-semibold tracking-wide text-slate-200">
-              Hyperparameters
+              Hyperparameters (Training / Policy)
             </h2>
           </div>
 

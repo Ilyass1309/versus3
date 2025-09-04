@@ -109,11 +109,22 @@ export async function POST(req: NextRequest) {
   let reward: number;
 
   if (body.result) {
+    // result = gagnant (player = humain / ai = IA)
+    // Reward doit rester DU POINT DE VUE IA
+    // IA gagne => +1 ; IA perd => -1
     result = body.result;
-    reward = result === "player" ? 1 : result === "ai" ? -1 : 0;
+    reward =
+      result === "ai" ? 1 :
+      result === "player" ? -1 : 0;
   } else {
     ({ result, reward } = inferOutcome(steps));
+    // inferOutcome retourne result côté gagnant ; reward déjà IA-centric si tu l’ajustes pareil
   }
+
+  // Correction post-inférence (si plus bas tu modifies result) : réappliquer règle reward IA
+  if (result === "ai") reward = 1;
+  else if (result === "player") reward = -1;
+  else reward = 0;
 
   // Si incohérence détectée et résultat = draw mais dernier HP <=0 côté IA uniquement → corriger
   if (result === "draw") {

@@ -27,7 +27,8 @@ interface QTablesActiveRow {
 }
 interface EpisodesAggRow {
   games: string | null;
-  wins: string | null;
+  ai_wins: string | null;
+  player_wins: string | null;
   losses: string | null;
   draws: string | null;
   avg_steps?: string | null;
@@ -96,19 +97,19 @@ async function fetchActiveModel(p: Pool) {
 
 async function fetchEpisodesAgg(p: Pool) {
   try {
-    const r = await p.query<EpisodesAggRow>(
-      `SELECT
-         COUNT(*)::text                AS games,
-         SUM( (result = 'player')::int )::text AS wins,
-         SUM( (result = 'ai')::int )::text     AS losses,
-         SUM( (result = 'draw')::int )::text   AS draws,
-         AVG(jsonb_array_length(steps))::text  AS avg_steps
+    const r = await p.query<EpisodesAggRow>(`
+      SELECT
+         COUNT(*)::text AS games,
+         SUM((result = 'ai')::int)::text     AS ai_wins,
+         SUM((result = 'player')::int)::text AS player_wins,
+         SUM((result = 'draw')::int)::text   AS draws,
+         AVG(jsonb_array_length(steps))::text AS avg_steps
        FROM episodes`
     );
     const row = r.rows[0];
     if (!row) return { wins: 0, losses: 0, draws: 0, games: 0 };
     return {
-      wins: parseInt(row.wins || "0", 10),
+      wins: parseInt(row.player_wins || "0", 10),
       losses: parseInt(row.losses || "0", 10),
       draws: parseInt(row.draws || "0", 10),
       games: parseInt(row.games || "0", 10),
