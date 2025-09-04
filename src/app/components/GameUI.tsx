@@ -1,4 +1,4 @@
-"use client";
+/*"use client";
 
 import { useEffect, useState } from "react";
 import { useEpisodeLogger } from "@/hooks/useEpisodeLogger";
@@ -36,7 +36,7 @@ export default function GameUI() {
         setVersion(parsed.version);
         setQSize(Object.keys(parsed.q).length);
       } catch {
-        /* ignore */
+        /* ignore *//*
       }
     })();
     return () => { cancelled = true; };
@@ -67,3 +67,4 @@ export default function GameUI() {
     </div>
   );
 }
+*/

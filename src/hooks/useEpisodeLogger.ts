@@ -1,36 +1,38 @@
 import { useRef, useState, useCallback } from "react";
 
-type LoggedStep = { aAI: 0|1|2; aPL: 0|1|2; nAI?: number; nPL?: number };
+type LoggedStep = {
+  aAI: 0|1|2;
+  aPL: 0|1|2;
+  hpAI: number;
+  hpPL: number;
+};
 
 export function useEpisodeLogger(version: number) {
   const steps = useRef<LoggedStep[]>([]);
   const [busy, setBusy] = useState(false);
   const submittedRef = useRef(false);
 
-  function logStep(aAI: 0|1|2, aPL: 0|1|2, nAI?: number, nPL?: number) {
-    steps.current.push({ aAI, aPL, nAI, nPL });
+  function logStep(aAI: 0|1|2, aPL: 0|1|2, hpAI: number, hpPL: number) {
+    steps.current.push({ aAI, aPL, hpAI, hpPL });
   }
 
-  const submit = useCallback(async () => {
+  const submit = useCallback(async (finalResult?: "player"|"ai"|"draw") => {
     if (submittedRef.current) return;
     if (steps.current.length === 0) return;
     submittedRef.current = true;
     setBusy(true);
     try {
-      const res = await fetch("/api/episode", {
+      await fetch("/api/episode", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clientVersion: version,
           steps: steps.current,
+          result: finalResult, // facultatif
         })
       });
-      if (!res.ok) {
-        // Optionnel: réautoriser soumis si échec pour réessayer
-        submittedRef.current = false;
-      }
     } catch {
-      submittedRef.current = false;
+      submittedRef.current = false; // autorise retry si erreur réseau
     } finally {
       setBusy(false);
     }
