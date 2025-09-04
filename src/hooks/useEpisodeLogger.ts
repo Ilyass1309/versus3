@@ -17,34 +17,29 @@ export function useEpisodeLogger(version: number) {
     submittedRef.current = true;
     setBusy(true);
     try {
-      await fetch("/api/episode", {
+      const res = await fetch("/api/episode", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clientVersion: version,
-            steps: steps.current
+          steps: steps.current,
         })
       });
+      if (!res.ok) {
+        // Optionnel: réautoriser soumis si échec pour réessayer
+        submittedRef.current = false;
+      }
     } catch {
-      // ignore
+      submittedRef.current = false;
     } finally {
       setBusy(false);
-      // Ne pas vider steps si tu veux debugger; sinon:
-      // steps.current = [];
     }
   }, [version]);
 
-  // Réinitialiser pour une nouvelle partie si nécessaire
   function resetEpisode() {
     steps.current = [];
     submittedRef.current = false;
   }
 
-  return {
-    logStep,
-    submit,
-    resetEpisode,
-    stepsCount: () => steps.current.length,
-    busy,
-  };
+  return { logStep, submit, resetEpisode, stepsCount: () => steps.current.length, busy };
 }

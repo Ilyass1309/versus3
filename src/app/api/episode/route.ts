@@ -10,8 +10,8 @@ interface Step {
   nPL?: number;
 }
 interface EpisodePayload {
-  clientVersion: number;
-  steps: Step[];
+  clientVersion?: number;
+  steps?: Step[];
 }
 
 let pool: Pool | null = null;
@@ -34,6 +34,7 @@ async function ensureTable(p: Pool) {
       reward INT,
       terminal BOOLEAN DEFAULT TRUE
     );
+    CREATE INDEX IF NOT EXISTS episodes_created_idx ON episodes(created_at);
   `);
 }
 
@@ -51,22 +52,22 @@ function computeOutcome(steps: Step[]): { result: "player" | "ai" | "draw"; rewa
 }
 
 export async function POST(req: NextRequest) {
-  let payload: EpisodePayload;
+  let raw: unknown;
   try {
-    payload = await req.json();
+    raw = await req.json();
   } catch {
-    return NextResponse.json({ error: "JSON invalide" }, { status: 400 });
-  }
-  if (
-    !payload ||
-    typeof payload.clientVersion !== "number" ||
-    !Array.isArray(payload.steps) ||
-    payload.steps.length === 0
-  ) {
-    return NextResponse.json({ error: "Payload invalide" }, { status: 400 });
+    return NextResponse.json({ error: "JSON invalide (corps vide ou mal formé)" }, { status: 400 });
   }
 
-  const { steps, clientVersion } = payload;
+  const body = raw as EpisodePayload;
+  const steps = Array.isArray(body.steps) ? body.steps : [];
+  const clientVersion = typeof body.clientVersion === "number" ? body.clientVersion : 0;
+
+  if (steps.length === 0) {
+    // On log mais on ne renvoie plus systématiquement 400 (évite spam console)
+    return NextResponse.json({ ok: false, error: "Aucun step reçu", receivedSteps: steps.length }, { status: 400 });
+  }
+
   const { result, reward } = computeOutcome(steps);
 
   const p = await getPool();
@@ -77,6 +78,8 @@ export async function POST(req: NextRequest) {
       result,
       reward,
       steps: steps.length,
+      clientVersion,
+      note: "Pas de DB (DATABASE_URL absent)",
     });
   }
 
@@ -93,6 +96,7 @@ export async function POST(req: NextRequest) {
       result,
       reward,
       steps: steps.length,
+      clientVersion,
     });
   } catch (e) {
     return NextResponse.json(

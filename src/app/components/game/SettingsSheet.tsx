@@ -22,7 +22,11 @@ export function SettingsSheet() {
           Settings
         </button>
       </DialogTrigger>
-      <DialogContent title="Paramètres">
+      <DialogContent
+        title="Paramètres"
+        description="Réglages locaux du jeu: exploration IA, volume et thème."
+        idBase="settings"
+      >
         <div className="flex flex-col gap-5">
           <div>
             <label className="text-xs font-medium text-slate-300 mb-1 block">
@@ -56,19 +60,19 @@ export function SettingsSheet() {
               step={0.01}
             />
           </div>
-          <div className="flex gap-4">
-            <Switch
-              checked={settings.theme === "dark"}
-              onCheckedChange={(c) => settings.setTheme(c ? "dark" : "light")}
-              label="Dark"
-            />
-            <button
-              onClick={() => engine.restart()}
-              className="text-xs px-3 py-1 rounded bg-red-600/80 hover:bg-red-600 text-white"
-            >
-              Reset game
-            </button>
-          </div>
+            <div className="flex gap-4">
+              <Switch
+                checked={settings.theme === "dark"}
+                onCheckedChange={(c) => settings.setTheme(c ? "dark" : "light")}
+                label="Dark"
+              />
+              <button
+                onClick={() => engine.restart()}
+                className="text-xs px-3 py-1 rounded bg-red-600/80 hover:bg-red-600 text-white"
+              >
+                Reset game
+              </button>
+            </div>
           <p className="text-[11px] text-slate-400">
             Les paramètres sont locaux et ne changent pas l&apos;apprentissage côté serveur (épisodes envoyés seulement).
           </p>
