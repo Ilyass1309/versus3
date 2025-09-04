@@ -5,6 +5,14 @@ import { Action, State } from "@/lib/rl/types";
 import { useEpisodeLogger } from "./useEpisodeLogger";
 import { audio } from "@/lib/audio";
 
+// Déclare localement les noms de sons utilisés (adapter si d'autres existent)
+type SfxName = "attack" | "defend" | "charge" | "win" | "lose";
+
+// Helper strict pour jouer un son
+const playSfx = (name: SfxName) => {
+  audio.play(name);
+};
+
 export type BattleEvent =
   | { type: "attack"; who: "ai" | "player"; dmg: number; spend?: number }
   | { type: "defend"; who: "ai" | "player" }
@@ -166,16 +174,16 @@ export function useGameEngine(opts: EngineOptions) {
         evs.push({
           type: "attack",
           who: "player",
-            dmg: dmgPlayerToAI,
+          dmg: dmgPlayerToAI,
           spend: plSpend,
         });
-        if (dmgPlayerToAI > 0) audio.play("attack");
+        if (dmgPlayerToAI > 0) playSfx("attack" as SfxName);
       } else if (playerPending === Action.DEFEND) {
         evs.push({ type: "defend", who: "player" });
-        audio.play("defend");
+        playSfx("defend" as SfxName);
       } else if (playerPending === Action.CHARGE) {
         evs.push({ type: "charge", who: "player" });
-        audio.play("charge");
+        playSfx("charge" as SfxName);
       }
 
       if (aiAction === Action.ATTACK) {
@@ -204,7 +212,7 @@ export function useGameEngine(opts: EngineOptions) {
         appendEvents([{ type: "result", outcome }]);
         setIsOver(true);
         setResult({ outcome, turns: s2.turn });
-        audio.play(outcome === "win" ? "win" : "lose");
+        playSfx((outcome === "win" ? "win" : "lose") as SfxName);
         (async () => {
           try {
             // CORRECTION: logger -> episodeLogger (logger était undefined)
@@ -227,8 +235,7 @@ export function useGameEngine(opts: EngineOptions) {
     playerAttackSpend,
     playerPending,
     state,
-    qTable?.version,
-    opts,
+    opts,              // SUPPR: qTable?.version retiré (dépendance inutile)
   ]);
 
   // Ajout: fonction de sélection d'action joueur
@@ -259,19 +266,16 @@ export function useGameEngine(opts: EngineOptions) {
     return "bg-red-500";
   }, []);
 
-  // Volume (ajout)
+  // Volume (remplacement: plus d'audioAPI)
   const volumeRef = useRef(0.6);
   const setVolume = useCallback((v: number) => {
-    volumeRef.current = Math.min(1, Math.max(0, v));
-    // Supporte différentes implémentations possibles de audio
-    try {
-      if (typeof (audio as any).setVolume === "function") {
-        (audio as any).setVolume(volumeRef.current);
-      } else if ("volume" in audio) {
-        (audio as any).volume = volumeRef.current;
-      }
-    } catch {
-      /* ignore */
+    const clamped = Math.min(1, Math.max(0, v));
+    volumeRef.current = clamped;
+    // Si AudioManager expose setVolume publiquement
+    if (typeof (audio as any).setVolume === "function") {
+      try {
+        (audio as any).setVolume(clamped);
+      } catch { /* ignore */ }
     }
   }, []);
 
