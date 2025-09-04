@@ -266,16 +266,17 @@ export function useGameEngine(opts: EngineOptions) {
     return "bg-red-500";
   }, []);
 
-  // Volume (remplacement: plus d'audioAPI)
+  // Volume (remplacement sans any)
   const volumeRef = useRef(0.6);
   const setVolume = useCallback((v: number) => {
     const clamped = Math.min(1, Math.max(0, v));
     volumeRef.current = clamped;
-    // Si AudioManager expose setVolume publiquement
-    if (typeof (audio as any).setVolume === "function") {
+    if (hasSetVolume(audio)) {
       try {
-        (audio as any).setVolume(clamped);
-      } catch { /* ignore */ }
+        audio.setVolume(clamped);
+      } catch {
+        /* ignore */
+      }
     }
   }, []);
 
@@ -301,4 +302,11 @@ export function useGameEngine(opts: EngineOptions) {
     volume: volumeRef.current,
     playerPick,
   };
+}
+
+// AJOUT: type guard pour éviter 'any'
+function hasSetVolume(o: unknown): o is { setVolume: (v: number) => void } {
+  return typeof o === "object" &&
+    o !== null &&
+    typeof (o as { setVolume?: unknown }).setVolume === "function";
 }
