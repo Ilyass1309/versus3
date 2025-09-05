@@ -1,32 +1,46 @@
 "use client";
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 
-type PlayerContext = { nickname: string | null; setNickname: (n: string | null) => void };
-const Ctx = createContext<PlayerContext | undefined>(undefined);
+interface PlayerCtx {
+  nickname: string | null;
+  setNickname: (n: string) => void;
+  clearNickname: () => void;
+}
 
-export function PlayerProvider({ children }: { children: React.ReactNode }) {
-  const [nickname, setNick] = useState<string | null>(null);
+const PlayerContext = createContext<PlayerCtx | undefined>(undefined);
 
+const NICK_KEY = "playerName";
+
+export function PlayerProvider({ children }: { children: ReactNode }) {
+  const [nickname, setNicknameState] = useState<string | null>(null);
+
+  // Hydratation initiale
   useEffect(() => {
     try {
-      const v = localStorage.getItem("player:nickname");
-      if (v) setNick(v);
+      const stored = localStorage.getItem(NICK_KEY);
+      if (stored) setNicknameState(stored);
     } catch {}
   }, []);
 
-  const setNickname = useCallback((n: string | null) => {
-    setNick(n);
-    try {
-      if (n) localStorage.setItem("player:nickname", n);
-      else localStorage.removeItem("player:nickname");
-    } catch {}
+  const setNickname = useCallback((n: string) => {
+    setNicknameState(n);
+    try { localStorage.setItem(NICK_KEY, n); } catch {}
   }, []);
 
-  return <Ctx.Provider value={{ nickname, setNickname }}>{children}</Ctx.Provider>;
+  const clearNickname = useCallback(() => {
+    setNicknameState(null);
+    try { localStorage.removeItem(NICK_KEY); } catch {}
+  }, []);
+
+  return (
+    <PlayerContext.Provider value={{ nickname, setNickname, clearNickname }}>
+      {children}
+    </PlayerContext.Provider>
+  );
 }
 
 export function usePlayer() {
-  const v = useContext(Ctx);
-  if (!v) throw new Error("usePlayer outside provider");
-  return v;
+  const ctx = useContext(PlayerContext);
+  if (!ctx) throw new Error("usePlayer must be used within <PlayerProvider>");
+  return ctx;
 }
