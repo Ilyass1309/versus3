@@ -62,12 +62,14 @@ export function RulesDialog({
           <div className="relative w-full max-w-lg rounded-xl border border-white/10 bg-slate-900/85 shadow-xl">
             <div className="p-5 md:p-6 text-sm text-slate-300 space-y-4">
               <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 to-fuchsia-300">
-                Rules du Duel
+                Duel Rules
               </h2>
+
               <section>
                 <h3 className="font-semibold text-indigo-300 mb-1">Objective</h3>
-                <p>Win by reducing your opponent's HP to zero.</p>
+                <p>Win by reducing your opponent&apos;s HP to zero.</p>
               </section>
+
               <section>
                 <h3 className="font-semibold text-indigo-300 mb-1">Actions</h3>
                 <ul className="list-disc list-inside space-y-1">
@@ -76,26 +78,30 @@ export function RulesDialog({
                   <li>Charge: increases energy for future turns.</li>
                 </ul>
               </section>
+
               <section>
-                <h3 className="font-semibold text-indigo-300 mb-1">Déroulement</h3>
-                <p>Choix simultané, puis résolution. Planifie tes menaces.</p>
+                <h3 className="font-semibold text-indigo-300 mb-1">Turn Flow</h3>
+                <p>Simultaneous selection, then resolution. Plan your threats.</p>
               </section>
+
               <section>
-                <h3 className="font-semibold text-indigo-300 mb-1">Fin</h3>
+                <h3 className="font-semibold text-indigo-300 mb-1">End Conditions</h3>
                 <ul className="list-disc list-inside space-y-1">
-                  <li>PV ≤ 0 → KO.</li>
-                  <li>KO simultané → nul.</li>
-                  <li>Limite de tours → compare les PV.</li>
+                  <li>HP &le; 0 &rarr; KO.</li>
+                  <li>Simultaneous KO &rarr; draw.</li>
+                  <li>Turn limit reached &rarr; compare remaining HP.</li>
                 </ul>
               </section>
+
               <section>
-                <h3 className="font-semibold text-indigo-300 mb-1">Conseils</h3>
+                <h3 className="font-semibold text-indigo-300 mb-1">Tips</h3>
                 <ul className="list-disc list-inside space-y-1">
-                  <li>Accumule avant une grosse frappe.</li>
-                  <li>Défends quand l’adversaire est chargé.</li>
-                  <li>Fais gaspiller ses charges.</li>
+                  <li>Build up before a heavy strike.</li>
+                  <li>Defend when the opponent is charged.</li>
+                  <li>Force them to waste their charges.</li>
                 </ul>
               </section>
+
               <div className="flex justify-end pt-2">
                 <button
                   onClick={closeFn}
