@@ -3,6 +3,8 @@ import { useGame } from "./GameShell";
 import { usePlayer } from "@/app/providers/PlayerProvider";
 import Link from "next/link";
 import { RulesDialog } from "@/app/components/ui/RulesDialog";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface GameHeaderProps {
   rulesOpen: boolean;
@@ -11,9 +13,39 @@ interface GameHeaderProps {
 
 export function GameHeader({ rulesOpen, onRulesOpenChange }: GameHeaderProps) {
   const { engine } = useGame();
-  const { user } = usePlayer();
+  const { user, setUser, refresh } = usePlayer();
   const nickname = user?.nickname;
   const status = engine.serverStatus;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const r = useRouter();
+
+  const toggleMenu = useCallback(() => {
+    setMenuOpen((o) => !o);
+  }, []);
+
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (!menuRef.current) return;
+      if (!menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    if (menuOpen) document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [menuOpen]);
+
+  async function logout() {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {}
+    setUser(null);
+    closeMenu();
+    r.push("/nickname");
+    // option: await refresh();
+  }
 
   return (
     <header className="w-full mb-2 flex flex-col gap-4 md:gap-2">
@@ -62,9 +94,37 @@ export function GameHeader({ rulesOpen, onRulesOpenChange }: GameHeaderProps) {
             )}
           />
           {nickname && (
-            <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-white/10 border border-white/15">
-              {nickname}
-            </span>
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={toggleMenu}
+                className="text-xs font-medium px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 transition focus:outline-none focus-visible:ring ring-indigo-400/60"
+                aria-haspopup="true"
+                aria-expanded={menuOpen}
+              >
+                {nickname}
+              </button>
+              {menuOpen && (
+                <div
+                  className="absolute right-0 mt-2 w-40 rounded-lg border border-white/10 bg-slate-900/90 backdrop-blur px-2 py-2 shadow-lg z-50"
+                  role="menu"
+                >
+                  <button
+                    onClick={logout}
+                    className="w-full text-left text-[11px] px-3 py-2 rounded-md bg-white/5 hover:bg-rose-500/20 hover:text-rose-200 transition"
+                    role="menuitem"
+                  >
+                    Se déconnecter
+                  </button>
+                  <button
+                    onClick={closeMenu}
+                    className="w-full mt-1 text-left text-[11px] px-3 py-2 rounded-md bg-white/5 hover:bg-white/10 transition"
+                    role="menuitem"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
