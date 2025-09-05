@@ -1,5 +1,6 @@
 "use client";
 import { RulesDialog } from "@/app/components/ui/RulesDialog";
+import Link from "next/link";
 
 export default function RulesPage() {
   return (
@@ -9,28 +10,30 @@ export default function RulesPage() {
           Règles du Jeu
         </h1>
         <p className="text-slate-400 mb-8">
-          Cette page récapitule les mécaniques de base. Tu peux aussi afficher cette aide en jeu via le bouton Règles.
+          Cette page récapitule les mécaniques de base. Tu peux aussi afficher cette aide en jeu via le bouton Règles accessible depuis l&apos;accueil ou la partie.
         </p>
         <div className="border border-white/10 rounded-xl p-6 bg-slate-900/60 backdrop-blur">
-          <RulesDialog trigger={(open) => (
-            <button
-              onClick={open}
-              className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-sm font-medium mb-4"
-            >
-              Ouvrir le guide interactif
-            </button>
-          )} />
+          <RulesDialog
+            trigger={(open) => (
+              <button
+                onClick={open}
+                className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-sm font-medium mb-4"
+              >
+                Ouvrir le guide interactif
+              </button>
+            )}
+          />
           <p className="text-xs text-slate-500">
-            Le pop-up est le même composant que celui accessible depuis l'accueil ou la partie.
+            Le pop-up est le même composant que celui accessible depuis l&apos;accueil ou la partie.
           </p>
         </div>
         <div className="mt-10">
-          <a
+          <Link
             href="/"
             className="inline-block text-sm text-indigo-300 hover:text-indigo-200 underline"
           >
-            Retour à l'accueil
-          </a>
+            Retour à l&apos;accueil
+          </Link>
         </div>
       </div>
     </main>
