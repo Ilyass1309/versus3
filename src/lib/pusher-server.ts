@@ -8,20 +8,35 @@ export const pusherServer = new Pusher({
   useTLS: true,
 });
 
-// Ephemeral in-memory store (serverless = volatile)
-type PlayerAction = { action: number; spend: number };
-interface Match {
+// --- Types ---
+export interface RLState {
+  pHP: number;
+  eHP: number;
+  pCharge: number;
+  eCharge: number;
+  turn: number;
+}
+
+export type PlayerAction = { action: number; spend: number };
+
+export interface Match {
   id: string;
   createdAt: number;
-  players: string[];            // user ids or anon tokens
-  state: any;                   // RL state snapshot
+  players: string[];
+  state: RLState;
   actions: Record<string, PlayerAction>;
   turn: number;
   phase: "collect" | "resolve" | "ended";
 }
+
+// Stockage mémoire
 declare global {
-  // eslint-disable-next-line no-var
   var __MATCHES__: Map<string, Match> | undefined;
 }
-export const matches = globalThis.__MATCHES__ ?? new Map<string, Match>();
-if (!globalThis.__MATCHES__) globalThis.__MATCHES__ = matches;
+
+export const matches: Map<string, Match> =
+  globalThis.__MATCHES__ ?? new Map<string, Match>();
+
+if (!globalThis.__MATCHES__) {
+  globalThis.__MATCHES__ = matches;
+}

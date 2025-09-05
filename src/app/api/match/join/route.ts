@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { matches, pusherServer } from "@/lib/pusher-server";
+import { matches, Match } from "@/lib/pusher-server";
+import { pusherServer } from "@/lib/pusher-server";
 import { matchChannel } from "@/lib/pusher-channel";
 export const runtime = "nodejs";
 
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true, state: publicState(m) });
 }
 
-function publicState(m: any) {
+function publicState(m: Match) {
   return {
     id: m.id,
     turn: m.turn,

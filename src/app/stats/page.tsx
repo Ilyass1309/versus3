@@ -11,7 +11,6 @@ import {
   Tooltip,
   CartesianGrid,
   ResponsiveContainer,
-  BarChart,
   Bar,
   Legend,
   ComposedChart,
@@ -133,15 +132,6 @@ export default function StatsPage() {
     if (!data || data.totalGames === 0) return 0;
     return (aiWins / data.totalGames) * 100;
   }, [data, aiWins]);
-
-  // Graphe: convertir winRate joueur -> winRate IA
-  const aiRecentWinRates = useMemo(() => {
-    if (!data) return [];
-    return data.recentWinRates.map(p => ({
-      date: p.date,
-      winRate: 100 - p.winRate,
-    }));
-  }, [data]);
 
   const coverageCardValue = useMemo(() => {
     if (!data) return "…";
