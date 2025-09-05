@@ -11,12 +11,11 @@ import {
   Tooltip,
   CartesianGrid,
   ResponsiveContainer,
-  AreaChart,
-  Area,
   BarChart,
   Bar,
   Legend,
   ComposedChart,
+  Area,
 } from "recharts";
 import {
   ArrowLeft,
@@ -140,7 +139,7 @@ export default function StatsPage() {
     if (!data) return [];
     return data.recentWinRates.map(p => ({
       date: p.date,
-      winRate: 100 - p.winRate, // inversion perspective
+      winRate: 100 - p.winRate,
     }));
   }, [data]);
 
@@ -174,6 +173,12 @@ export default function StatsPage() {
   const smoothed = useMemo(()=> smooth(history,"coverage",10), [history]);
 
   const lastPoint = history.length ? history[history.length - 1] : null;
+
+  // Tooltip formatter without 'any'
+  function coverageValueFormatter(value: unknown): [string, string] {
+    if (typeof value === "number") return [value.toFixed(2) + "%", "Coverage"];
+    return ["0.00%", "Coverage"];
+  }
 
   return (
     <div className="min-h-dvh px-5 py-6 md:px-10 bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 text-slate-100">
@@ -284,8 +289,8 @@ export default function StatsPage() {
                     <YAxis stroke="#94a3b8" fontSize={11} domain={[0, 100]} tickFormatter={v=>v+"%"} />
                     <Tooltip
                       contentStyle={{ background: "rgba(15,23,42,0.85)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }}
-                      formatter={(v:any)=> [Number(v).toFixed(2)+"%", "Coverage"]}
-                      labelFormatter={l=>"Episode "+l}
+                      formatter={coverageValueFormatter}
+                      labelFormatter={(l)=>"Episode "+l}
                     />
                     <Line type="monotone" dataKey="coverage" stroke="#6366f1" dot={false} strokeWidth={2}/>
                   </LineChart>
@@ -305,7 +310,7 @@ export default function StatsPage() {
                     <YAxis stroke="#94a3b8" fontSize={11} />
                     <Tooltip
                       contentStyle={{ background: "rgba(15,23,42,0.85)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }}
-                      labelFormatter={l=>"Episode "+l}
+                      labelFormatter={(l)=>"Episode "+l}
                     />
                     <Legend />
                     <Line type="monotone" dataKey="avgV" name="Avg" stroke="#34d399" dot={false}/>
