@@ -87,6 +87,24 @@ interface Args {
   epsilonBoost: number;
   curriculumPhases: number;
   seedFile?: string;
+  historyFile: string;
+  snapshotEvery: number;      // every N episodes take a full Q snapshot
+  snapshotDir: string;        // directory for snapshot files
+  snapshotSample?: number;    // optional: limit number of states stored (undefined = full)
+}
+
+interface HistoryPoint {
+  episode: number;
+  coverage: number;
+  states: number;
+  minV: number;
+  maxV: number;
+  avgV: number;
+  epsilon: number;
+  newStates: number;
+  stagnate: number;
+  gini: number;
+  timestamp: number;
 }
 
 const defaultArgs: Args = {
@@ -112,7 +130,11 @@ const defaultArgs: Args = {
   noNewStateThreshold: 4000,
   epsilonBoost: 0.25,
   curriculumPhases: 4,
-  seedFile: undefined
+  seedFile: undefined,
+  historyFile: "data/training-history-francois.json",
+  snapshotEvery: 100000,
+  snapshotDir: "data/qtable-snapshots/francois",
+  snapshotSample: undefined,
 };
 
 function parseArgs(): Args {
@@ -154,7 +176,11 @@ function parseArgs(): Args {
     noNewStateThreshold: num("noNewStateThreshold"),
     epsilonBoost: num("epsilonBoost"),
     curriculumPhases: num("curriculumPhases"),
-    seedFile: get("--seedFile") ?? defaultArgs.seedFile
+    seedFile: get("--seedFile") ?? defaultArgs.seedFile,
+    historyFile: str("historyFile"),
+    snapshotEvery: num("snapshotEvery"),
+    snapshotDir: str("snapshotDir"),
+    snapshotSample: num("snapshotSample"),
   };
 }
 
@@ -290,18 +316,22 @@ function computeReachableMax(cachePath: string): number {
 function adaptiveEpsilon(
   coverage: number,
   args: Args,
-  stagnating: boolean
+  stagnating: boolean,
+  episodesSinceNew: number
 ): number {
-  if (stagnating) {
-    return Math.min(1, args.epsilonStart * 0.5 + args.epsilonBoost);
+  // base decay
+  let eps: number;
+  if (coverage < args.coverageDecayStart) eps = args.epsilonStart;
+  else {
+    const span = 1 - args.coverageDecayStart;
+    const prog = Math.min(1, (coverage - args.coverageDecayStart) / span);
+    eps = args.epsilonStart * (1 - prog) + args.epsilonFloor * prog;
   }
-  if (coverage < args.coverageDecayStart)
-    return args.epsilonStart;
-  const span = 1 - args.coverageDecayStart;
-  const prog = Math.min(1, (coverage - args.coverageDecayStart) / span);
-  return (
-    args.epsilonStart * (1 - prog) + args.epsilonFloor * prog
-  );
+  // stagnation bump plus modéré
+  if (stagnating && coverage < 0.70) {
+    eps = Math.max(eps, 0.35 + Math.min(0.15, episodesSinceNew / (args.noNewStateThreshold * 2)));
+  }
+  return Math.min(0.9, Math.max(args.epsilonFloor, eps));
 }
 
 function adaptiveAlpha(visits: number, args: Args): number {
@@ -394,6 +424,89 @@ function saveAll(savePath: string, q: QTable, visits: VisitMap, meta: any) {
   );
 }
 
+// Add helper after saveAll()
+function sampleStates(q: QTable, limit?: number): QTable {
+  if (!limit || limit <= 0) return q;
+  const keys = Object.keys(q);
+  if (keys.length <= limit) return q;
+  // deterministic sample: hash-sort then slice for reproducibility
+  const scored = keys.map(k => {
+    // simple hash
+    let h = 0;
+    for (let i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) >>> 0;
+    return { k, h };
+  }).sort((a,b)=> a.h - b.h);
+  const picked = scored.slice(0, limit).map(o => o.k);
+  const out: QTable = {};
+  for (const k of picked) out[k] = q[k];
+  return out;
+}
+
+function saveSnapshot(
+  args: Args,
+  episode: number,
+  reachableMax: number,
+  q: QTable,
+  visits: VisitMap,
+  epsilon: number
+) {
+  try {
+    fs.mkdirSync(args.snapshotDir, { recursive: true });
+    const stateCount = Object.keys(q).length;
+    const coveragePct = (100 * stateCount) / reachableMax;
+    const visitVals = Object.values(visits);
+    const minV = visitVals.length ? Math.min(...visitVals) : 0;
+    const maxV = visitVals.length ? Math.max(...visitVals) : 0;
+    const avgV = visitVals.length
+      ? visitVals.reduce((a,b)=>a+b,0) / visitVals.length
+      : 0;
+
+    const qData = sampleStates(q, args.snapshotSample);
+    const snap = {
+      episode,
+      timestamp: Date.now(),
+      coveragePct: Number(coveragePct.toFixed(3)),
+      states: stateCount,
+      minVisits: minV,
+      maxVisits: maxV,
+      avgVisits: Number(avgV.toFixed(2)),
+      epsilon: Number(epsilon.toFixed(4)),
+      full: args.snapshotSample ? false : true,
+      qCountStored: Object.keys(qData).length
+    };
+
+    const fileName = `snapshot-ep${episode}${args.snapshotSample ? `-sample${args.snapshotSample}` : ""}.json`;
+    fs.writeFileSync(
+      path.join(args.snapshotDir, fileName),
+      JSON.stringify(
+        {
+          meta: snap,
+          q: qData,
+          // keep only sampled visits for consistency
+          visits: Object.fromEntries(
+            Object.keys(qData).map(k => [k, visits[k] ?? 0])
+          )
+        },
+        null,
+        2
+      ),
+      "utf-8"
+    );
+    // Also maintain an index file (append-only small)
+    const indexFile = path.join(args.snapshotDir, "index.json");
+    let index: any[] = [];
+    if (fs.existsSync(indexFile)) {
+      try { index = JSON.parse(fs.readFileSync(indexFile,"utf-8")); } catch {}
+    }
+    index.push(snap);
+    // keep only last 200 entries
+    if (index.length > 200) index = index.slice(-200);
+    fs.writeFileSync(indexFile, JSON.stringify(index, null, 2), "utf-8");
+  } catch (e) {
+    console.warn("[snapshot] failed:", (e as Error).message);
+  }
+}
+
 // ===== Replay Buffer =====
 interface Transition {
   s: string;
@@ -468,6 +581,24 @@ async function main() {
   let cumulativeReward = 0;
   let bestCoverage = 0;
 
+  // Charger historique existant
+  function loadHistory(pathFile: string): HistoryPoint[] {
+    try {
+      if (fs.existsSync(pathFile)) {
+        const raw = JSON.parse(fs.readFileSync(pathFile,"utf-8"));
+        if (Array.isArray(raw)) return raw as HistoryPoint[];
+      }
+    } catch {}
+    return [];
+  }
+
+  function saveHistory(pathFile: string, history: HistoryPoint[]) {
+    fs.mkdirSync(path.dirname(pathFile), { recursive: true });
+    fs.writeFileSync(pathFile, JSON.stringify(history, null, 2), "utf-8");
+  }
+
+  const history: HistoryPoint[] = loadHistory(args.historyFile);
+
   for (let ep = 1; ep <= args.episodes; ep++) {
     let s = initialState();
     ensureQ(q, encodeState(s));
@@ -477,8 +608,9 @@ async function main() {
     const coverage = Object.keys(q).length / reachableMax;
     if (coverage > bestCoverage) bestCoverage = coverage;
 
-    const stagnating = ep - lastNewStateAt > args.noNewStateThreshold && coverage < args.targetCoverage;
-    const epsilon = adaptiveEpsilon(coverage, args, stagnating);
+    const episodesSinceNew = ep - lastNewStateAt;
+    const stagnating = episodesSinceNew > args.noNewStateThreshold && coverage < args.targetCoverage;
+    const epsilon = adaptiveEpsilon(coverage, args, stagnating, episodesSinceNew);
     const phaseFrac = ep / args.episodes;
     const weights = curriculumWeights(phaseFrac);
     const opponentPolicy = samplePolicy(weights);
@@ -558,6 +690,20 @@ async function main() {
         ` avgV=${avgV.toFixed(1)} maxV=${maxV} stagnate=${(ep - lastNewStateAt)}`
       );
 
+      const g = gini(visitVals);
+      history.push({
+        episode: totalEpisodes, // total cumulé
+        coverage: coveragePct,
+        states: stateCount,
+        minV: minV,
+        maxV: maxV,
+        avgV: avgV,
+        epsilon,
+        newStates: newStatesFound,
+        stagnate: episodesSinceNew,
+        gini: Number(g.toFixed(4)),
+        timestamp: Date.now()
+      });
       if (ep % args.checkpointEvery === 0 || ep === args.episodes) {
         saveAll(args.save, q, visits, {
           coveragePct: Number(coveragePct.toFixed(3)),
@@ -570,6 +716,7 @@ async function main() {
           episode: ep,
           totalEpisodes   // <-- cumul sur toutes les relances
         });
+        saveHistory(args.historyFile, history.slice(-5000)); // garder fenêtre (évite trop gros)
       }
     }
 
@@ -591,6 +738,11 @@ async function main() {
         )}% W:${ev.win} L:${ev.lose} D:${ev.draw}`
       );
     }
+
+    if ((ep % args.snapshotEvery === 0 || ep === args.episodes)) {
+      // Use latest computed coverage stats lazily (recompute minimally)
+      saveSnapshot(args, totalEpisodes, reachableMax, q, visits, /*current epsilon*/ epsilon);
+    }
   }
 
   const finalStateCount = Object.keys(q).length;
@@ -601,6 +753,7 @@ async function main() {
   const avgV = visitVals.length
     ? visitVals.reduce((a, b) => a + b, 0) / visitVals.length
     : 0;
+  const lastHist = history.length ? history[history.length - 1] : undefined;
   saveAll(args.save, q, visits, {
     coveragePct: Number(finalCoverage.toFixed(3)),
     reachableMax,
@@ -609,6 +762,7 @@ async function main() {
     maxVisits: maxV,
     avgVisits: Number(avgV.toFixed(2)),
     completed: true,
+    gini: lastHist ? lastHist.gini : 0,
     totalEpisodes
   });
 
@@ -625,3 +779,21 @@ main().catch((e) => {
   console.error(e);
   process.exit(1);
 });
+
+function gini(values: number[]): number {
+  if (!values.length) return 0;
+  const arr = [...values].sort((a,b)=>a-b);
+  const n = arr.length;
+  const sum = arr.reduce((a,b)=>a+b,0);
+  if (sum === 0) return 0;
+  let cum = 0;
+  let weighted = 0;
+  for (let i=0;i<n;i++){
+    const v = arr[i];
+    if (v === undefined) continue; // guard for noUncheckedIndexedAccess
+    cum += v;
+    weighted += cum;
+  }
+  // Gini = (n+1 - 2 * (weighted/sum)) / n
+  return (n + 1 - 2 * (weighted / sum)) / n;
+}

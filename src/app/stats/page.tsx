@@ -11,6 +11,12 @@ import {
   Tooltip,
   CartesianGrid,
   ResponsiveContainer,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  Legend,
+  ComposedChart,
 } from "recharts";
 import {
   ArrowLeft,
@@ -39,6 +45,20 @@ interface StatsPayload {
   trainingEpisodes: number;        // <-- AJOUT
 }
 
+interface TrainingPoint {
+  episode: number;
+  coverage: number;
+  states: number;
+  minV: number;
+  maxV: number;
+  avgV: number;
+  epsilon: number;
+  newStates: number;
+  stagnate: number;
+  gini: number;
+  timestamp: number;
+}
+
 function formatCompact(n: number): string {
   if (n >= 1_000_000) {
     const v = n / 1_000_000;
@@ -57,6 +77,8 @@ export default function StatsPage() {
   const [loading, setLoading] = useState(true);
   const [hyper, setHyper] = useState({ alpha: 0, gamma: 0, epsilon: 0 });
   const [saving, setSaving] = useState(false);
+  const [history, setHistory] = useState<TrainingPoint[]>([]);
+  const [histLoading, setHistLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -90,6 +112,21 @@ export default function StatsPage() {
     }
   }
 
+  const loadHistory = useCallback(async () => {
+    setHistLoading(true);
+    try {
+      const r = await fetch("/api/training/history", { cache: "no-store" });
+      if (r.ok) {
+        const j = await r.json();
+        setHistory(j.points || []);
+      }
+    } finally {
+      setHistLoading(false);
+    }
+  }, []);
+
+  useEffect(()=> { loadHistory(); }, [loadHistory]);
+
   // --- Perspective IA ---
   const aiWins = data?.totalLosses ?? 0;   // IA gagne quand le joueur perd
   const aiLosses = data?.totalWins ?? 0;   // IA perd quand le joueur gagne
@@ -121,6 +158,22 @@ export default function StatsPage() {
     if (!data) return "…";
     return formatCompact(data.trainingEpisodes);
   }, [data]);
+
+  // Smoothing util:
+  function smooth(points: TrainingPoint[], key: keyof TrainingPoint, win=15) {
+    if (!points.length) return [];
+    return points.map((p,i)=>{
+      const a = Math.max(0, i - win);
+      const b = Math.min(points.length -1, i + win);
+      const slice = points.slice(a,b+1);
+      const val = slice.reduce((s,x)=> s + (Number(x[key])||0),0)/slice.length;
+      return { ...p, [key]: val };
+    });
+  }
+
+  const smoothed = useMemo(()=> smooth(history,"coverage",10), [history]);
+
+  const lastPoint = history.length ? history[history.length - 1] : null;
 
   return (
     <div className="min-h-dvh px-5 py-6 md:px-10 bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 text-slate-100">
@@ -196,58 +249,116 @@ export default function StatsPage() {
           />
         </div>
 
-        {/* Graph */}
+        {/* New cards section */}
+        <div className="grid gap-5 sm:grid-cols-3">
+          <StatsCard
+            title="Latest Epsilon"
+            value={lastPoint ? lastPoint.epsilon.toFixed(3) : "…"}
+          />
+          <StatsCard
+            title="Visit Gini"
+            value={lastPoint ? lastPoint.gini.toFixed(3) : "…"}
+            footer="Higher = more imbalance"
+          />
+          <StatsCard
+            title="Stagnation (ep)"
+            value={lastPoint ? lastPoint.stagnate : "…"}
+            footer="Episodes since last new state"
+          />
+        </div>
+
+        {/* Graphs section */}
         <motion.div
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-xl p-6 shadow"
+          className="space-y-10"
         >
-          <h2 className="text-sm font-semibold mb-4 tracking-wide text-slate-200">
-            AI Win Rate Evolution
-          </h2>
-          <div className="h-72 w-full">
-            {loading || !data ? (
-              <div className="w-full h-full animate-pulse rounded-lg bg-white/5" />
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={aiRecentWinRates}>
-                  <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="date"
-                    stroke="#94a3b8"
-                    fontSize={11}
-                    tickMargin={8}
-                    minTickGap={16}
-                  />
-                  <YAxis
-                    stroke="#94a3b8"
-                    fontSize={11}
-                    tickFormatter={(v) => v + "%"}
-                    domain={[0, 100]}
-                    width={40}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: "rgba(15,23,42,0.85)",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      borderRadius: "8px",
-                      fontSize: "12px",
-                    }}
-                    labelStyle={{ color: "#cbd5e1" }}
-                    formatter={(value: number) => [`${value.toFixed(1)}%`, "AI Win Rate"]}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="winRate"
-                    stroke="#34d399"
-                    strokeWidth={2}
-                    dot={false}
-                    activeDot={{ r: 4 }}
-                    isAnimationActive
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
+          <div className="rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-xl p-6 shadow">
+            <h2 className="text-sm font-semibold mb-4 tracking-wide text-slate-200">Coverage Over Time</h2>
+            <div className="h-64">
+              {histLoading ? <div className="w-full h-full animate-pulse bg-white/5 rounded"/> : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={smoothed}>
+                    <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
+                    <XAxis dataKey="episode" stroke="#94a3b8" fontSize={11}/>
+                    <YAxis stroke="#94a3b8" fontSize={11} domain={[0, 100]} tickFormatter={v=>v+"%"} />
+                    <Tooltip
+                      contentStyle={{ background: "rgba(15,23,42,0.85)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }}
+                      formatter={(v:any)=> [Number(v).toFixed(2)+"%", "Coverage"]}
+                      labelFormatter={l=>"Episode "+l}
+                    />
+                    <Line type="monotone" dataKey="coverage" stroke="#6366f1" dot={false} strokeWidth={2}/>
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-xl p-6 shadow">
+            <h2 className="text-sm font-semibold mb-4 tracking-wide text-slate-200">Visits Distribution Metrics</h2>
+            <div className="h-64">
+              {histLoading ? <div className="w-full h-full animate-pulse bg-white/5 rounded"/> : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={history}>
+                    <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
+                    <XAxis dataKey="episode" stroke="#94a3b8" fontSize={11}/>
+                    <YAxis stroke="#94a3b8" fontSize={11} />
+                    <Tooltip
+                      contentStyle={{ background: "rgba(15,23,42,0.85)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }}
+                      labelFormatter={l=>"Episode "+l}
+                    />
+                    <Legend />
+                    <Line type="monotone" dataKey="avgV" name="Avg" stroke="#34d399" dot={false}/>
+                    <Line type="monotone" dataKey="minV" name="Min" stroke="#fbbf24" dot={false}/>
+                    <Line type="monotone" dataKey="maxV" name="Max" stroke="#f87171" dot={false}/>
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-xl p-6 shadow">
+            <h2 className="text-sm font-semibold mb-4 tracking-wide text-slate-200">Epsilon & New States</h2>
+            <div className="h-64">
+              {histLoading ? <div className="w-full h-full animate-pulse bg-white/5 rounded"/> : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={history}>
+                    <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
+                    <XAxis dataKey="episode" stroke="#94a3b8" fontSize={11}/>
+                    <YAxis yAxisId="left" stroke="#94a3b8" fontSize={11}/>
+                    <YAxis yAxisId="right" orientation="right" stroke="#94a3b8" fontSize={11}/>
+                    <Tooltip
+                      contentStyle={{ background: "rgba(15,23,42,0.85)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }}
+                    />
+                    <Legend />
+                    <Bar yAxisId="left" dataKey="newStates" name="New States" fill="#6366f1" />
+                    <Line yAxisId="right" type="monotone" dataKey="epsilon" name="Epsilon" stroke="#f472b6" dot={false}/>
+                  </ComposedChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-xl p-6 shadow">
+            <h2 className="text-sm font-semibold mb-4 tracking-wide text-slate-200">Gini & Stagnation</h2>
+            <div className="h-64">
+              {histLoading ? <div className="w-full h-full animate-pulse bg-white/5 rounded"/> : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={history}>
+                    <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
+                    <XAxis dataKey="episode" stroke="#94a3b8" fontSize={11}/>
+                    <YAxis yAxisId="gini" stroke="#94a3b8" fontSize={11} domain={[0,1]}/>
+                    <YAxis yAxisId="stag" orientation="right" stroke="#94a3b8" fontSize={11}/>
+                    <Tooltip
+                      contentStyle={{ background: "rgba(15,23,42,0.85)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }}
+                    />
+                    <Legend />
+                    <Line yAxisId="gini" type="monotone" dataKey="gini" name="Gini" stroke="#a78bfa" dot={false}/>
+                    <Area yAxisId="stag" type="monotone" dataKey="stagnate" name="Episodes Since New" stroke="#f59e0b" fill="#f59e0b33"/>
+                  </ComposedChart>
+                </ResponsiveContainer>
+              )}
+            </div>
           </div>
         </motion.div>
 
