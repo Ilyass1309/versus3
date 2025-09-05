@@ -89,7 +89,7 @@ export function GameHeader({ rulesOpen, onRulesOpenChange }: GameHeaderProps) {
                 onClick={open}
                 className="text-xs font-medium px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 transition focus:outline-none focus-visible:ring ring-indigo-400/60"
               >
-                Règles
+                Rules
               </button>
             )}
           />
@@ -113,14 +113,14 @@ export function GameHeader({ rulesOpen, onRulesOpenChange }: GameHeaderProps) {
                     className="w-full text-left text-[11px] px-3 py-2 rounded-md bg-white/5 hover:bg-rose-500/20 hover:text-rose-200 transition"
                     role="menuitem"
                   >
-                    Se déconnecter
+                    Log out
                   </button>
                   <button
                     onClick={closeMenu}
                     className="w-full mt-1 text-left text-[11px] px-3 py-2 rounded-md bg-white/5 hover:bg-white/10 transition"
                     role="menuitem"
                   >
-                    Annuler
+                    Cancel
                   </button>
                 </div>
               )}
@@ -129,7 +129,7 @@ export function GameHeader({ rulesOpen, onRulesOpenChange }: GameHeaderProps) {
         </div>
       </div>
       <p className="text-[11px] md:text-xs text-slate-400 tracking-wide uppercase">
-        Duel tactique • Charge / Défense / Frappe • Intelligence Adaptative
+        Tactical Duel • Charge / Defend / Strike • Adaptive Intelligence
       </p>
     </header>
   );

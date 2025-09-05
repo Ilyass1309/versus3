@@ -48,11 +48,11 @@ export default function AuthPage() {
         className="w-full max-w-sm space-y-5 rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-8"
       >
         <h1 className="text-2xl font-bold">
-          {mode === "register" ? "Créer un compte" : "Connexion"}
+          {mode === "register" ? "Create Account" : "Sign In"}
         </h1>
         <div className="space-y-2">
           <label className="text-xs font-medium uppercase tracking-wide">
-            Pseudo
+            Username
             <input
               value={nickname}
               onChange={e=>setNickname(e.target.value)}
@@ -62,7 +62,7 @@ export default function AuthPage() {
             />
           </label>
           <label className="text-xs font-medium uppercase tracking-wide">
-            Mot de passe
+            Password
             <input
               type="password"
               value={password}
@@ -78,14 +78,14 @@ export default function AuthPage() {
           disabled={busy || nickname.length < 3 || password.length < 6}
           className="w-full rounded bg-gradient-to-r from-indigo-500 to-fuchsia-500 py-2 text-sm font-semibold disabled:opacity-40"
         >
-          {busy ? "..." : (mode === "register" ? "S'inscrire" : "Se connecter")}
+          {busy ? "..." : (mode === "register" ? "Sign Up" : "Sign In")}
         </button>
         <button
           type="button"
           onClick={() => { setMode(m => m==="register"?"login":"register"); setErr(""); }}
           className="w-full text-[11px] text-slate-400 hover:text-slate-200"
         >
-          {mode === "register" ? "Déjà un compte ? Connexion" : "Pas de compte ? Inscription"}
+          {mode === "register" ? "Already have an account? Sign In" : "No account? Create one"}
         </button>
       </form>
     </div>

@@ -35,7 +35,7 @@ export function Scoreboard() {
     <div className="w-full card-glass p-4 lg:sticky lg:top-20 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_4px_18px_-4px_rgba(0,0,0,0.45)]">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-[11px] font-semibold tracking-wider uppercase text-slate-300">
-          Classement (Victoires)
+          Leaderboard (Wins)
         </h3>
         <button
           onClick={load}
@@ -45,9 +45,9 @@ export function Scoreboard() {
         </button>
       </div>
       {loading && !data.length ? (
-        <p className="text-[11px] text-slate-400">Chargement…</p>
+        <p className="text-[11px] text-slate-400">Loading...</p>
       ) : data.length === 0 ? (
-        <p className="text-[11px] text-slate-400">Aucune victoire enregistrée.</p>
+        <p className="text-[11px] text-slate-400">No wins recorded.</p>
       ) : (
         <ol className="space-y-1 text-[12px]">
           {data.map((e, i) => {

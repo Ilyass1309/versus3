@@ -132,13 +132,13 @@ export function Arena() {
       </div>
       <div className="col-span-full mt-2 text-[11px] text-slate-400/80 flex justify-between tracking-wide">
         <span>
-          Tour&nbsp;
+          Turn&nbsp;
           <span className="font-semibold text-slate-200">
             {lastTurn ? lastTurn.n : 0}
           </span>
         </span>
         <span className="hidden md:inline text-slate-500">
-          Choisissez vos actions avec A / D / C puis Enter
+          Choose your actions with A / D / C then Enter
         </span>
       </div>
       <AnimatePresence>

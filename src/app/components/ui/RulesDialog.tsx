@@ -53,7 +53,7 @@ export function RulesDialog({
               " px-3 py-1.5 rounded bg-indigo-600/80 hover:bg-indigo-500 text-xs font-medium"
             }
           >
-            Règles
+            Rules
           </button>
         ))}
       {actualOpen && (
@@ -62,14 +62,18 @@ export function RulesDialog({
           <div className="relative w-full max-w-lg rounded-xl border border-white/10 bg-slate-900/85 shadow-xl">
             <div className="p-5 md:p-6 text-sm text-slate-300 space-y-4">
               <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 to-fuchsia-300">
-                Règles du Duel
+                Rules du Duel
               </h2>
+              <section>
+                <h3 className="font-semibold text-indigo-300 mb-1">Objective</h3>
+                <p>Win by reducing your opponent's HP to zero.</p>
+              </section>
               <section>
                 <h3 className="font-semibold text-indigo-300 mb-1">Actions</h3>
                 <ul className="list-disc list-inside space-y-1">
-                  <li>Attaque: dépense 1+ charge → dégâts = 8 × charge dépensée.</li>
-                  <li>Défense: divise les dégâts entrants par 2 (arrondi haut).</li>
-                  <li>Charge: +1 charge (max 3).</li>
+                  <li>Attack: deals damage.</li>
+                  <li>Defend: reduces incoming damage.</li>
+                  <li>Charge: increases energy for future turns.</li>
                 </ul>
               </section>
               <section>
@@ -97,7 +101,7 @@ export function RulesDialog({
                   onClick={closeFn}
                   className="px-4 py-1.5 rounded bg-slate-700/60 hover:bg-slate-600 text-xs font-medium"
                 >
-                  Fermer
+                  Close
                 </button>
               </div>
             </div>

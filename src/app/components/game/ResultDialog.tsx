@@ -17,10 +17,10 @@ export function ResultDialog() {
 
   const title =
     result.outcome === "win"
-      ? "Victoire !"
+      ? "Victory!"
       : result.outcome === "lose"
-      ? "Défaite"
-      : "Égalité";
+      ? "Defeat"
+      : "Draw";
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -38,14 +38,14 @@ export function ResultDialog() {
               variant="solid"
               className="flex-1"
             >
-              Rejouer
+              Play Again
             </Button>
             <Button
               onClick={() => setOpen(false)}
               variant="ghost"
               className="flex-1"
             >
-              Fermer
+              Close
             </Button>
           </div>
         </div>

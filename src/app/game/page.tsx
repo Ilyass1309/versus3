@@ -41,7 +41,7 @@ export default function GamePage() {
           <BattleLog />
           <ResultDialog />
           <footer className="mt-2 text-[10px] text-slate-500 text-center pb-2">
-            Prototype RL • Attaque / Défense / Charge
+            RL Prototype • Attack / Defend / Charge
           </footer>
         </main>
       </div>
