@@ -31,14 +31,14 @@ export function Scoreboard() {
   }, []);
 
   return (
-    <div className="w-full glass p-4 rounded-xl border border-white/10">
+    <div className="w-full card-glass p-4 lg:sticky lg:top-20 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_4px_18px_-4px_rgba(0,0,0,0.45)]">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-semibold tracking-wide uppercase text-slate-300">
+        <h3 className="text-[11px] font-semibold tracking-wider uppercase text-slate-300">
           Classement (Victoires)
         </h3>
         <button
           onClick={load}
-            className="text-[10px] px-2 py-1 rounded bg-white/10 hover:bg-white/20 transition"
+          className="text-[10px] px-2 py-1 rounded bg-white/10 hover:bg-white/20 transition"
         >
           Refresh
         </button>

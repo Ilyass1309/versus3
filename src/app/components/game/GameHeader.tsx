@@ -11,43 +11,59 @@ export function GameHeader() {
   const [open, setOpen] = useState(false);
   const [temp, setTemp] = useState(nickname || "");
   const status = engine.serverStatus;
+
   return (
-    <header className="w-full max-w-5xl mb-4 flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
-      <div className="flex items-center gap-3">
-        <h1 className="text-lg font-semibold tracking-wide text-slate-200">
-          Versus III
-        </h1>
-        <span
-          className={`text-[10px] px-2 py-1 rounded-full border ${
-            status === "ok"
-              ? "border-emerald-400/40 text-emerald-300"
-              : status === "error"
-              ? "border-rose-400/40 text-rose-300"
-              : "border-slate-400/30 text-slate-300/70"
-          }`}
-        >
-          {status}
-        </span>
-      </div>
-      <div className="flex items-center gap-3">
-        <Link
-          href="/stats"
-          className="text-xs font-medium px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 transition focus:outline-none focus-visible:ring ring-indigo-400/60"
-        >
-          Stats
-        </Link>
-        {nickname && (
-          <button
-            onClick={() => {
-              setTemp(nickname);
-              setOpen(true);
-            }}
+    <header className="w-full mb-2 flex flex-col gap-4 md:gap-2">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <h1
+              className="relative font-extrabold tracking-tight text-3xl md:text-4xl leading-none"
+              aria-label="Versus III"
+            >
+              <span className="inline-block bg-gradient-to-r from-indigo-300 via-fuchsia-400 to-rose-400 bg-clip-text text-transparent animate-gradient-x drop-shadow-[0_0_8px_rgba(236,72,153,0.35)]">
+                VERSUS <span className="text-white/70">III</span>
+              </span>
+            </h1>
+            <div className="absolute -inset-2 blur-2xl bg-gradient-to-r from-indigo-500/20 via-fuchsia-500/10 to-rose-500/20 glow-pulse pointer-events-none" />
+          </div>
+          <span
+            className={`text-[10px] px-2 py-1 rounded-full border uppercase tracking-wide ${
+              status === "ok"
+                ? "border-emerald-400/40 text-emerald-300"
+                : status === "error"
+                ? "border-rose-400/40 text-rose-300"
+                : "border-slate-400/30 text-slate-400/80"
+            }`}
+          >
+            {status}
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/stats"
             className="text-xs font-medium px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 transition focus:outline-none focus-visible:ring ring-indigo-400/60"
           >
-            {nickname}
-          </button>
-        )}
+            Stats
+          </Link>
+          {nickname && (
+            <button
+              onClick={() => {
+                setTemp(nickname);
+                setOpen(true);
+              }}
+              className="text-xs font-medium px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 transition focus:outline-none focus-visible:ring ring-indigo-400/60"
+            >
+              {nickname}
+            </button>
+          )}
+        </div>
       </div>
+
+      <p className="text-[11px] md:text-xs text-slate-400 tracking-wide uppercase">
+        Duel tactique • Charge / Défense / Frappe • Intelligence Adaptative
+      </p>
+
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
           title="Changer de nom"

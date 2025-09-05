@@ -108,7 +108,7 @@ export function Arena() {
   return (
     <section
       aria-label="Aire de combat"
-      className="relative w-full max-w-5xl glass p-6 md:p-10 grid gap-8 md:grid-cols-2"
+      className="relative w-full card-glass p-6 md:p-8 grid gap-8 md:grid-cols-2 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_8px_28px_-8px_rgba(0,0,0,0.5)]"
     >
       <div className="flex flex-col gap-4 justify-between">
         <div>
@@ -130,8 +130,16 @@ export function Arena() {
         </div>
         <FighterSprite who="ai" actionPending={null} />
       </div>
-      <div className="col-span-full mt-4 text-[11px] text-slate-500 flex justify-between">
-        <span>Tour: {lastTurn ? lastTurn.n : 0}</span>
+      <div className="col-span-full mt-2 text-[11px] text-slate-400/80 flex justify-between tracking-wide">
+        <span>
+          Tour&nbsp;
+          <span className="font-semibold text-slate-200">
+            {lastTurn ? lastTurn.n : 0}
+          </span>
+        </span>
+        <span className="hidden md:inline text-slate-500">
+          Choisissez vos actions avec A / D / C puis Enter
+        </span>
       </div>
       <AnimatePresence>
         {reveal && (

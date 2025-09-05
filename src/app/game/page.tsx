@@ -35,7 +35,7 @@ export default function GamePage() {
       <div className="absolute top-2 right-3 z-20">
         <RulesDialog open={rulesOpen} onOpenChange={setRulesOpen} />
       </div>
-      <div className="flex flex-col lg:flex-row gap-6 w-full mt-4">
+      <div className="flex flex-col lg:flex-row gap-6 w-full mt-2">
         <aside className="lg:w-72 xl:w-80 shrink-0 order-2 lg:order-1 space-y-6">
           <Scoreboard />
         </aside>
@@ -44,7 +44,7 @@ export default function GamePage() {
           <ActionBar />
           <BattleLog />
           <ResultDialog />
-          <footer className="mt-4 text-[10px] text-slate-500">
+          <footer className="mt-2 text-[10px] text-slate-500 text-center pb-2">
             Prototype RL • Attaque / Défense / Charge
           </footer>
         </main>

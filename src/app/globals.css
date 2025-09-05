@@ -54,3 +54,24 @@ body {
     transition: none !important;
   }
 }
+
+@keyframes gradient-x {
+  0%,100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.animate-gradient-x {
+  background-size: 200% 200%;
+  animation: gradient-x 8s ease-in-out infinite;
+}
+
+@keyframes glowPulse {
+  0%,100% { opacity: 0.55; filter: blur(12px); }
+  50% { opacity: 0.9; filter: blur(18px); }
+}
+.glow-pulse {
+  animation: glowPulse 5s ease-in-out infinite;
+}
+
+.card-glass {
+  @apply rounded-xl border border-white/10 bg-slate-900/60 backdrop-blur-md;
+}

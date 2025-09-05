@@ -33,7 +33,7 @@ export function ActionBar() {
   const showSpend = engine.playerPending === Action.ATTACK && engine.state.eCharge > 1;
 
   return (
-    <div className="w-full max-w-5xl mt-6 flex flex-col gap-3">
+    <div className="w-full card-glass p-4 md:p-5 flex flex-col gap-4 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_6px_20px_-6px_rgba(0,0,0,0.45)]">
       <div className="flex gap-3 flex-col md:flex-row">
         <Tooltip label="Attaque (A)">
           <Button
@@ -43,7 +43,9 @@ export function ActionBar() {
             size="lg"
             glow={engine.playerPending === Action.ATTACK}
             disabled={disabled}
-            className="flex-1"
+            className={`flex-1 relative ${
+              engine.playerPending === Action.ATTACK ? "ring-2 ring-indigo-400/60" : ""
+            }`}
           >
             <Sword size={20} />
             Attack
@@ -57,7 +59,9 @@ export function ActionBar() {
             size="lg"
             glow={engine.playerPending === Action.DEFEND}
             disabled={disabled}
-            className="flex-1"
+            className={`flex-1 relative ${
+              engine.playerPending === Action.DEFEND ? "ring-2 ring-indigo-400/60" : ""
+            }`}
           >
             <Shield size={20} />
             Defend
@@ -71,7 +75,9 @@ export function ActionBar() {
             size="lg"
             glow={engine.playerPending === Action.CHARGE}
             disabled={disabled}
-            className="flex-1"
+            className={`flex-1 relative ${
+              engine.playerPending === Action.CHARGE ? "ring-2 ring-indigo-400/60" : ""
+            }`}
           >
             <Battery size={20} />
             Charge
