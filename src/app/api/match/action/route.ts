@@ -20,11 +20,21 @@ export async function POST(req: NextRequest) {
     { who: playerId, count: Object.keys(m.actions).length }
   );
 
+  // On ne résout que si exactement 2 joueurs ET 2 actions (sécurité supplémentaire)
   if (m.players.length === 2 && Object.keys(m.actions).length === 2) {
-    m.phase = "resolve";
-    const [p1, p2] = m.players;
+    // TS: on force le tuple pour indiquer qu'on a bien deux éléments
+    const [p1, p2] = m.players as [string, string];
+    if (!p1 || !p2) {
+      return NextResponse.json({ error: "players_missing" }, { status: 500 });
+    }
+
     const a1 = m.actions[p1];
     const a2 = m.actions[p2];
+    if (!a1 || !a2) {
+      return NextResponse.json({ error: "actions_incomplete" }, { status: 409 });
+    }
+
+    m.phase = "resolve";
 
     const current = m.state;
     const { s2, r, done } = stepWithPower(
@@ -32,6 +42,7 @@ export async function POST(req: NextRequest) {
       a1.action, a1.action === 0 ? a1.spend : 0,
       a2.action, a2.action === 0 ? a2.spend : 0
     );
+
     m.state = s2;
     m.turn = s2.turn;
     m.actions = {};
