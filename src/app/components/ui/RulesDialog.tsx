@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, ReactNode } from "react";
+import { useState, useEffect, ReactNode, useCallback } from "react";
 
 interface RulesDialogProps {
   trigger?: (open: () => void) => ReactNode;
@@ -24,8 +24,8 @@ export function RulesDialog({
     if (!isControlled) setInternalOpen(v);
     onOpenChange?.(v);
   };
-  const openFn = () => setOpen(true);
-  const closeFn = () => setOpen(false);
+  const openFn = useCallback(() => setOpen(true), [setOpen]);
+  const closeFn = useCallback(() => setOpen(false), [setOpen]);
 
   useEffect(() => {
     if (!actualOpen) return;
@@ -34,7 +34,7 @@ export function RulesDialog({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [actualOpen]);
+  }, [actualOpen, closeFn]);
 
   return (
     <>

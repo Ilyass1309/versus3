@@ -30,8 +30,8 @@ export async function POST(req: Request) {
     const res = NextResponse.json({ user: { id: user.id, nickname: user.nickname } });
     setSessionCookie(res, token, expires);
     return res;
-  } catch (e: any) {
-    if (e instanceof Error && e.message === "nickname_taken") {
+  } catch (err: unknown) {
+    if (err instanceof Error && err.message === "nickname_taken") {
       return NextResponse.json({ error: "nickname_taken" }, { status: 409 });
     }
     return NextResponse.json({ error: "server_error" }, { status: 500 });

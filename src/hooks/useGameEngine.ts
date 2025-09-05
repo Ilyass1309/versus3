@@ -4,7 +4,6 @@ import { stepWithPower, encodeState, MAX_HP, initialState } from "@/lib/rl/env";
 import { Action, State } from "@/lib/rl/types"; 
 import { useEpisodeLogger } from "./useEpisodeLogger";
 import { audio } from "@/lib/audio";
-import { usePlayer } from "@/app/providers/PlayerProvider";
 
 // Déclare localement les noms de sons utilisés (adapter si d'autres existent)
 type SfxName = "attack" | "defend" | "charge" | "win" | "lose";

@@ -6,7 +6,6 @@ import { Arena } from "@/app/components/game/Arena";
 import { ActionBar } from "@/app/components/game/ActionBar";
 import { BattleLog } from "@/app/components/game/BattleLog";
 import { ResultDialog } from "@/app/components/game/ResultDialog";
-import { RulesDialog } from "@/app/components/ui/RulesDialog";
 import { Scoreboard } from "@/app/components/game/Scoreboard";
 
 const RULES_FLAG_KEY = "rulesSeen_v1";

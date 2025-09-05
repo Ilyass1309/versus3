@@ -13,9 +13,12 @@ export const pool = new Pool({
   idleTimeoutMillis: 30_000,
 });
 
-type SQLFn = <T extends QueryResultRow = QueryResultRow>(strings: TemplateStringsArray, ...values: any[]) => Promise<QueryResult<T>>;
+type SQLFn = <T extends QueryResultRow = QueryResultRow>(
+  strings: TemplateStringsArray,
+  ...values: unknown[]
+) => Promise<QueryResult<T>>;
 
-function buildQuery(strings: TemplateStringsArray, values: any[]) {
+function buildQuery(strings: TemplateStringsArray, values: unknown[]) {
   let text = "";
   for (let i = 0; i < strings.length; i++) {
     text += strings[i];
@@ -24,16 +27,22 @@ function buildQuery(strings: TemplateStringsArray, values: any[]) {
   return text;
 }
 
-const baseSql: SQLFn = <T extends QueryResultRow = QueryResultRow>(strings: TemplateStringsArray, ...values: any[]) => {
+const baseSql: SQLFn = <T extends QueryResultRow = QueryResultRow>(
+  strings: TemplateStringsArray,
+  ...values: unknown[]
+) => {
   const text = buildQuery(strings, values);
-  return pool.query<T>(text, values);
+  return pool.query<T>(text, values as any[]);
 };
 
 async function connect() {
   const client: PoolClient = await pool.connect();
-  const clientSql: SQLFn = <T extends QueryResultRow = QueryResultRow>(strings: TemplateStringsArray, ...values: any[]) => {
+  const clientSql: SQLFn = <T extends QueryResultRow = QueryResultRow>(
+    strings: TemplateStringsArray,
+    ...values: unknown[]
+  ) => {
     const text = buildQuery(strings, values);
-    return client.query<T>(text, values);
+    return client.query<T>(text, values as any[]);
   };
   return {
     sql: clientSql,
