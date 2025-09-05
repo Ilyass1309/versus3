@@ -4,8 +4,14 @@ import { usePlayer } from "@/app/providers/PlayerProvider";
 import { useState } from "react";
 import { Dialog, DialogContent } from "@/app/components/ui/dialog";
 import Link from "next/link";
+import { RulesDialog } from "@/app/components/ui/RulesDialog";
 
-export function GameHeader() {
+interface GameHeaderProps {
+  rulesOpen: boolean;
+  onRulesOpenChange(open: boolean): void;
+}
+
+export function GameHeader({ rulesOpen, onRulesOpenChange }: GameHeaderProps) {
   const { engine } = useGame();
   const { nickname, setNickname } = usePlayer();
   const [open, setOpen] = useState(false);
@@ -46,6 +52,18 @@ export function GameHeader() {
           >
             Stats
           </Link>
+          <RulesDialog
+            open={rulesOpen}
+            onOpenChange={onRulesOpenChange}
+            trigger={(open) => (
+              <button
+                onClick={open}
+                className="text-xs font-medium px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 transition focus:outline-none focus-visible:ring ring-indigo-400/60"
+              >
+                Règles
+              </button>
+            )}
+          />
           {nickname && (
             <button
               onClick={() => {
