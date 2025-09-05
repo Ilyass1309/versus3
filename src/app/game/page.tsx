@@ -33,7 +33,18 @@ export default function GamePage() {
     <GameShell>
       <GameHeader />
       <div className="absolute top-2 right-3 z-20">
-        <RulesDialog open={rulesOpen} onOpenChange={setRulesOpen} />
+        <RulesDialog
+          open={rulesOpen}
+          onOpenChange={setRulesOpen}
+          trigger={(open) => (
+            <button
+              onClick={open}
+              className="text-xs font-medium px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 transition focus:outline-none focus-visible:ring ring-indigo-400/60"
+            >
+              Règles
+            </button>
+          )}
+        />
       </div>
       <div className="flex flex-col lg:flex-row gap-6 w-full mt-2">
         <aside className="lg:w-72 xl:w-80 shrink-0 order-2 lg:order-1 space-y-6">
