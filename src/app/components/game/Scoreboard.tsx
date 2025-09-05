@@ -31,7 +31,7 @@ export function Scoreboard() {
   }, []);
 
   return (
-    <div className="w-full max-w-5xl mt-6 glass p-4 rounded-xl border border-white/10">
+    <div className="w-full glass p-4 rounded-xl border border-white/10">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-xs font-semibold tracking-wide uppercase text-slate-300">
           Classement (Victoires)
@@ -39,9 +39,9 @@ export function Scoreboard() {
         <button
           onClick={load}
             className="text-[10px] px-2 py-1 rounded bg-white/10 hover:bg-white/20 transition"
-          >
-            Refresh
-          </button>
+        >
+          Refresh
+        </button>
       </div>
       {loading && !data.length ? (
         <p className="text-[11px] text-slate-400">Chargement…</p>

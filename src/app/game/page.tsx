@@ -35,14 +35,20 @@ export default function GamePage() {
       <div className="absolute top-2 right-3 z-20">
         <RulesDialog open={rulesOpen} onOpenChange={setRulesOpen} />
       </div>
-      <Arena />
-      <ActionBar />
-      <BattleLog />
-      <ResultDialog />
-      <Scoreboard />
-      <footer className="mt-10 text-[10px] text-slate-500">
-        Prototype RL • Attaque / Défense / Charge
-      </footer>
+      <div className="flex flex-col lg:flex-row gap-6 w-full mt-4">
+        <aside className="lg:w-72 xl:w-80 shrink-0 order-2 lg:order-1 space-y-6">
+          <Scoreboard />
+        </aside>
+        <main className="flex-1 order-1 lg:order-2 flex flex-col gap-4">
+          <Arena />
+          <ActionBar />
+          <BattleLog />
+          <ResultDialog />
+          <footer className="mt-4 text-[10px] text-slate-500">
+            Prototype RL • Attaque / Défense / Charge
+          </footer>
+        </main>
+      </div>
     </GameShell>
   );
 }
