@@ -20,10 +20,14 @@ export function RulesDialog({
   const [internalOpen, setInternalOpen] = useState(false);
   const actualOpen = isControlled ? (open as boolean) : internalOpen;
 
-  const setOpen = (v: boolean) => {
-    if (!isControlled) setInternalOpen(v);
-    onOpenChange?.(v);
-  };
+  const setOpen = useCallback(
+    (v: boolean) => {
+      if (!isControlled) setInternalOpen(v);
+      onOpenChange?.(v);
+    },
+    [isControlled, onOpenChange]
+  );
+
   const openFn = useCallback(() => setOpen(true), [setOpen]);
   const closeFn = useCallback(() => setOpen(false), [setOpen]);
 
@@ -52,7 +56,6 @@ export function RulesDialog({
             Règles
           </button>
         ))}
-
       {actualOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeFn} />

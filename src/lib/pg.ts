@@ -3,8 +3,9 @@
 import { Pool, PoolClient, QueryResult, QueryResultRow } from "pg";
 
 const connectionString = process.env.DATABASE_URL;
+
 if (!connectionString) {
-  console.warn("[pg] DATABASE_URL non défini – les requêtes échoueront.");
+  console.warn("[pg] DATABASE_URL non défini.");
 }
 
 export const pool = new Pool({
@@ -15,10 +16,10 @@ export const pool = new Pool({
 
 type SQLFn = <T extends QueryResultRow = QueryResultRow>(
   strings: TemplateStringsArray,
-  ...values: unknown[]
+  ...values: readonly unknown[]
 ) => Promise<QueryResult<T>>;
 
-function buildQuery(strings: TemplateStringsArray, values: unknown[]) {
+function buildQuery(strings: TemplateStringsArray, values: readonly unknown[]) {
   let text = "";
   for (let i = 0; i < strings.length; i++) {
     text += strings[i];
@@ -29,20 +30,20 @@ function buildQuery(strings: TemplateStringsArray, values: unknown[]) {
 
 const baseSql: SQLFn = <T extends QueryResultRow = QueryResultRow>(
   strings: TemplateStringsArray,
-  ...values: unknown[]
+  ...values: readonly unknown[]
 ) => {
   const text = buildQuery(strings, values);
-  return pool.query<T>(text, values as any[]);
+  return pool.query<T>(text, values as unknown[]);
 };
 
 async function connect() {
   const client: PoolClient = await pool.connect();
   const clientSql: SQLFn = <T extends QueryResultRow = QueryResultRow>(
     strings: TemplateStringsArray,
-    ...values: unknown[]
+    ...values: readonly unknown[]
   ) => {
     const text = buildQuery(strings, values);
-    return client.query<T>(text, values as any[]);
+    return client.query<T>(text, values as unknown[]);
   };
   return {
     sql: clientSql,
@@ -54,5 +55,4 @@ async function connect() {
   };
 }
 
-// Exporte un objet similaire à ce que db.ts attend (sql tag + connect()).
 export const sql = Object.assign(baseSql, { connect });
