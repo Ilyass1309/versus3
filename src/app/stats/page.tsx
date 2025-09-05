@@ -34,8 +34,21 @@ interface StatsPayload {
   qtableSize: number;
   qVersion: number | null;
   lastUpdate: string | null;
-  reachableMaxStates: number;   // AJOUT
-  coveragePct: number;          // AJOUT
+  reachableMaxStates: number;
+  coveragePct: number;
+  trainingEpisodes: number;        // <-- AJOUT
+}
+
+function formatCompact(n: number): string {
+  if (n >= 1_000_000) {
+    const v = n / 1_000_000;
+    return "+" + (v >= 10 ? v.toFixed(0) : v.toFixed(1)) + "M";
+  }
+  if (n >= 1_000) {
+    const v = n / 1_000;
+    return "+" + (v >= 10 ? v.toFixed(0) : v.toFixed(1)) + "K";
+  }
+  return "+" + n;
 }
 
 export default function StatsPage() {
@@ -104,6 +117,11 @@ export default function StatsPage() {
     return `${data.qtableSize} / ${data.reachableMaxStates} reachable states`;
   }, [data]);
 
+  const trainingEpisodesValue = useMemo(() => {
+    if (!data) return "…";
+    return formatCompact(data.trainingEpisodes);
+  }, [data]);
+
   return (
     <div className="min-h-dvh px-5 py-6 md:px-10 bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 text-slate-100">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -163,15 +181,12 @@ export default function StatsPage() {
                 : ""
             }
           />
+          {/* Remplacement de l'ancienne carte Q-table States */}
           <StatsCard
-            title="Q-table States"
-            value={loading ? "…" : data?.qtableSize ?? 0}
+            title="Training Episodes"
+            value={trainingEpisodesValue}
             icon={<Database size={20} className="text-indigo-300" />}
-            footer={
-              !loading && data?.lastUpdate
-                ? "Version " + (data.qVersion ?? "?")
-                : ""
-            }
+            footer={!loading && data ? "Francois model" : ""}
           />
           <StatsCard
             title="State Coverage"

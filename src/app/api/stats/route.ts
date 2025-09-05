@@ -19,8 +19,9 @@ interface StatsResponse {
   qtableSize: number;
   qVersion: number | null;
   lastUpdate: string | null;
-  reachableMaxStates: number;     // AJOUT
-  coveragePct: number;            // AJOUT (0..100)
+  reachableMaxStates: number;
+  coveragePct: number;
+  trainingEpisodes: number;            // <-- AJOUT
 }
 
 // Types des lignes SQL
@@ -225,6 +226,49 @@ function computeReachableMaxStates(): number {
   return reachableCache.total;
 }
 
+async function loadTrainingEpisodes(): Promise<number> {
+  // Essaie de lire data/qtable-francois.json (prioritaire)
+  try {
+    const fs = await import("node:fs/promises");
+    const file = process.cwd() + "/data/qtable-francois.json";
+    const raw = await fs.readFile(file, "utf-8");
+    const parsed = JSON.parse(raw);
+    if (parsed?.meta) {
+      if (typeof parsed.meta.totalEpisodes === "number") return parsed.meta.totalEpisodes;
+      if (typeof parsed.meta.episode === "number") return parsed.meta.episode;
+    }
+  } catch {
+    // ignore
+  }
+  // Fallback: essayer un checkpoint récent (optionnel)
+  try {
+    const fs = await import("node:fs/promises");
+    const dir = process.cwd() + "/public/checkpoints";
+    const entries = await fs.readdir(dir);
+    const candidates = entries
+      .filter(f => f.startsWith("qtable_ep") && f.endsWith(".json"))
+      .map(f => ({
+        f,
+        ep: parseInt(f.replace(/\D+/g, ""), 10)
+      }))
+      .filter(o => Number.isFinite(o.ep))
+      .sort((a, b) => b.ep - a.ep);
+    const firstCandidate = candidates[0];
+    if (firstCandidate) {
+      // Lecture du premier
+      const raw = await fs.readFile(dir + "/" + firstCandidate.f, "utf-8");
+      const parsed = JSON.parse(raw);
+      if (parsed?.meta) {
+        if (typeof parsed.meta.totalEpisodes === "number") return parsed.meta.totalEpisodes;
+        if (typeof parsed.meta.episode === "number") return parsed.meta.episode;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return 0;
+}
+
 export async function GET() {
   const p = await getPool();
   let qtableSize = 0;
@@ -242,23 +286,19 @@ export async function GET() {
       fetchEpisodesAgg(p),
       fetchRecentWinRates(p),
     ]);
-
     qtableSize = model.size;
     qVersion = model.version;
     lastUpdate = model.createdAt;
-
     totalGames = agg.games;
     totalWins = agg.wins;
     totalLosses = agg.losses;
     totalDraws = agg.draws;
     recentWinRates = recent;
   } else {
-    // Fallback fichier (sans DB)
     const fb = await fallbackSeed();
     qtableSize = fb.size;
     qVersion = fb.version;
     lastUpdate = fb.lastUpdate;
-    // recentWinRates vide -> page affichera 0
     recentWinRates = [];
   }
 
@@ -266,6 +306,8 @@ export async function GET() {
   const coveragePct = reachableMaxStates > 0
     ? (qtableSize / reachableMaxStates) * 100
     : 0;
+
+  const trainingEpisodes = await loadTrainingEpisodes(); // <-- AJOUT
 
   const payload: StatsResponse = {
     totalGames,
@@ -279,6 +321,7 @@ export async function GET() {
     lastUpdate,
     reachableMaxStates,
     coveragePct: Number(coveragePct.toFixed(2)),
+    trainingEpisodes, // <-- AJOUT
   };
 
   return NextResponse.json(payload);
