@@ -1,5 +1,7 @@
-import { sql } from "@vercel/postgres";
+import { sql } from "./pg"; // ensure this import exists (adjust path if needed)
 import type { QTable } from "./rl/qtable";
+import crypto from "node:crypto";
+import bcrypt from "bcryptjs";
 
 type QRowDB = { id: number; version: number; qjson: QTable };
 
@@ -133,4 +135,103 @@ export async function getTopPlayers(limit = 10): Promise<Array<{ nickname: strin
     LIMIT ${limit}
   `;
   return rows;
+}
+
+// --- AUTH TABLES & HELPERS ---
+
+export async function ensureAuthTables() {
+  await sql`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      nickname TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS sessions (
+      token TEXT PRIMARY KEY,
+      user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+}
+
+export interface User {
+  id: number;
+  nickname: string;
+  created_at: string;
+}
+
+export async function registerUser(nickname: string, password: string): Promise<User> {
+  await ensureAuthTables();
+  const hash = await bcrypt.hash(password, 10);
+  const { rows } = await sql<User>`
+    INSERT INTO users (nickname, password_hash)
+    VALUES (${nickname}, ${hash})
+    ON CONFLICT (nickname) DO NOTHING
+    RETURNING id, nickname, created_at
+  `;
+  const user = rows[0];
+  if (!user) throw new Error("nickname_taken");
+  return user;
+}
+
+export async function findUserByNickname(nickname: string): Promise<{ id: number; password_hash: string } | null> {
+  await ensureAuthTables();
+  const { rows } = await sql<{ id: number; password_hash: string }>`
+    SELECT id, password_hash FROM users WHERE nickname = ${nickname}
+  `;
+  return rows[0] ?? null;
+}
+
+export async function createSession(userId: number, days = 7) {
+  await ensureAuthTables();
+  const token = crypto.randomBytes(32).toString("hex");
+  const expires = new Date(Date.now() + days * 86400_000);
+  await sql`
+    INSERT INTO sessions (token, user_id, expires_at)
+    VALUES (${token}, ${userId}, ${expires.toISOString()})
+  `;
+  return { token, expires };
+}
+
+export async function getUserBySession(token: string): Promise<User | null> {
+  if (!token) return null;
+  await ensureAuthTables();
+  const { rows } = await sql<(User & { expires_at: string })>`
+    SELECT u.id, u.nickname, u.created_at, s.expires_at
+    FROM sessions s
+    JOIN users u ON u.id = s.user_id
+    WHERE s.token = ${token}
+  `;
+  const row = rows[0];
+  if (!row) return null;
+  if (new Date(row.expires_at) < new Date()) {
+    await sql`DELETE FROM sessions WHERE token = ${token}`.catch(()=>{});
+    return null;
+  }
+  return { id: row.id, nickname: row.nickname, created_at: row.created_at };
+}
+
+export async function deleteSession(token: string) {
+  await ensureAuthTables();
+  await sql`DELETE FROM sessions WHERE token = ${token}`;
+}
+
+// Secure score increment now uses authenticated user (server-side)
+export async function incrementAuthedPlayerWin(userId: number) {
+  await ensurePlayerScoresTable();
+  const { rows } = await sql<{ nickname: string }>`SELECT nickname FROM users WHERE id=${userId}`;
+  const row = rows[0];
+  if (!row) return;
+  const nick = row.nickname;
+  await sql`
+    INSERT INTO player_scores (nickname, wins)
+    VALUES (${nick}, 1)
+    ON CONFLICT (nickname)
+    DO UPDATE SET wins = player_scores.wins + 1,
+                  updated_at = NOW()
+  `;
 }

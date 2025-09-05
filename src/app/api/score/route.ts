@@ -1,24 +1,19 @@
 import { NextResponse } from "next/server";
-import { incrementPlayerWin } from "@/lib/db";
+import { getUserBySession, incrementAuthedPlayerWin } from "@/lib/db";
+import { cookies } from "next/headers";
 
 export const runtime = "nodejs";
 
-interface Body {
-  nickname?: string;
-  result?: "player" | "ai" | "draw";
-}
-
-export async function POST(req: Request) {
+export async function POST() {
   try {
-    const body: Body = await req.json().catch(() => ({}));
-    if (!body.nickname || typeof body.nickname !== "string") {
-      return NextResponse.json({ error: "nickname required" }, { status: 400 });
-    }
-    if (body.result === "player") {
-      await incrementPlayerWin(body.nickname);
-    }
+    const cookieStore = await cookies();
+    const token = cookieStore.get("session")?.value;
+    if (!token) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+    const user = await getUserBySession(token);
+    if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+    await incrementAuthedPlayerWin(user.id);
     return NextResponse.json({ ok: true });
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: "server_error" }, { status: 500 });
   }
 }

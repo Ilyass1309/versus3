@@ -37,11 +37,11 @@ export function GameShell({ children }: { children: React.ReactNode }) {
   const [epsilon, setEpsilon] = useState(0.05);
   const [volume, setVolume] = useState(0.6);
   const [theme, setTheme] = useState<Settings["theme"]>("system");
-  const { nickname } = usePlayer();
+  const { user } = usePlayer();
   const engine = useGameEngine({
     epsilon,
     onError: (m) => console.error(m),
-    nickname,
+    nickname: user?.nickname ?? null,
   });
 
   const settings: Settings = {

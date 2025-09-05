@@ -1,8 +1,6 @@
 "use client";
 import { useGame } from "./GameShell";
 import { usePlayer } from "@/app/providers/PlayerProvider";
-import { useState } from "react";
-import { Dialog, DialogContent } from "@/app/components/ui/dialog";
 import Link from "next/link";
 import { RulesDialog } from "@/app/components/ui/RulesDialog";
 
@@ -13,9 +11,8 @@ interface GameHeaderProps {
 
 export function GameHeader({ rulesOpen, onRulesOpenChange }: GameHeaderProps) {
   const { engine } = useGame();
-  const { nickname, setNickname } = usePlayer();
-  const [open, setOpen] = useState(false);
-  const [temp, setTemp] = useState(nickname || "");
+  const { user } = usePlayer();
+  const nickname = user?.nickname;
   const status = engine.serverStatus;
 
   return (
@@ -65,59 +62,15 @@ export function GameHeader({ rulesOpen, onRulesOpenChange }: GameHeaderProps) {
             )}
           />
           {nickname && (
-            <button
-              onClick={() => {
-                setTemp(nickname);
-                setOpen(true);
-              }}
-              className="text-xs font-medium px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 transition focus:outline-none focus-visible:ring ring-indigo-400/60"
-            >
+            <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-white/10 border border-white/15">
               {nickname}
-            </button>
+            </span>
           )}
         </div>
       </div>
-
       <p className="text-[11px] md:text-xs text-slate-400 tracking-wide uppercase">
         Duel tactique • Charge / Défense / Frappe • Intelligence Adaptative
       </p>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent
-          title="Changer de nom"
-          description="Modifiez et sauvegardez votre pseudonyme (3 à 16 caractères)."
-          idBase="nickname"
-        >
-          <div className="space-y-4 text-sm">
-            <label className="block text-xs font-medium uppercase tracking-wider">
-              Pseudo
-              <input
-                value={temp}
-                onChange={(e) => setTemp(e.target.value)}
-                maxLength={16}
-                className="mt-1 w-full rounded bg-slate-800/60 border border-white/15 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 ring-indigo-400/60"
-              />
-            </label>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setOpen(false)}
-                className="flex-1 text-xs px-3 py-2 rounded bg-white/10 hover:bg-white/20 border border-white/10"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={() => {
-                  if (temp.trim().length >= 3) setNickname(temp.trim());
-                  setOpen(false);
-                }}
-                className="flex-1 text-xs px-3 py-2 rounded bg-gradient-to-r from-indigo-500 to-fuchsia-500 font-medium"
-              >
-                Enregistrer
-              </button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </header>
   );
 }

@@ -239,13 +239,8 @@ export function useGameEngine(opts: EngineOptions) {
           }
         })();
 
-        if (finalResultForServer === "player" && opts.nickname) {
-          // Fire and forget
-          fetch("/api/score", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ nickname: opts.nickname, result: finalResultForServer })
-          }).catch(()=>{});
+        if (finalResultForServer === "player") {
+          fetch("/api/score", { method: "POST" }).catch(()=>{});
         }
       }
 

@@ -7,7 +7,8 @@ interface Entry {
   wins: number;
 }
 export function Scoreboard() {
-  const { nickname } = usePlayer();
+  const { user } = usePlayer();
+  const nickname = user?.nickname;
   const [data, setData] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
 
