@@ -109,7 +109,7 @@ interface HistoryPoint {
 
 const defaultArgs: Args = {
   episodes: 80000,
-  save: "public/qtable-francois.json",
+  save: "data/qtable-francois.json",
   checkpointEvery: 10000,
   logEvery: 1000,
   evalEvery: 20000,
@@ -438,7 +438,13 @@ function sampleStates(q: QTable, limit?: number): QTable {
   }).sort((a,b)=> a.h - b.h);
   const picked = scored.slice(0, limit).map(o => o.k);
   const out: QTable = {};
-  for (const k of picked) out[k] = q[k];
+  for (const k of picked) {
+    const row = q[k]; // may be QRow | undefined under noUncheckedIndexedAccess
+    if (row) {
+      out[k] = row;
+    }
+    // If row is somehow undefined (should not happen since k comes from keys(q)), we skip it.
+  }
   return out;
 }
 
