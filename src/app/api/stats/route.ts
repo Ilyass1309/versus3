@@ -72,6 +72,7 @@ async function getPool(): Promise<Pool | null> {
 
 // Hyperparams (statique ici, adapter si stockés en DB)
 const hyper = { alpha: 0.18, gamma: 0.98, epsilon: 0.05 };
+const PRE_TRAINED_EPISODES = 1_000_000; // Episodes historiques réalisés avant comptage
 
 async function fetchActiveModel(p: Pool) {
   try {
@@ -307,7 +308,8 @@ export async function GET() {
     ? (qtableSize / reachableMaxStates) * 100
     : 0;
 
-  const trainingEpisodes = await loadTrainingEpisodes(); // <-- AJOUT
+  const countedEpisodes = await loadTrainingEpisodes();
+  const totalTrainingEpisodes = PRE_TRAINED_EPISODES + countedEpisodes;
 
   const payload: StatsResponse = {
     totalGames,
@@ -321,7 +323,8 @@ export async function GET() {
     lastUpdate,
     reachableMaxStates,
     coveragePct: Number(coveragePct.toFixed(2)),
-    trainingEpisodes, // <-- AJOUT
+    trainingEpisodes: totalTrainingEpisodes,
+    // trainingEpisodesBase: PRE_TRAINED_EPISODES, // dé-commente si tu veux afficher la base côté client
   };
 
   return NextResponse.json(payload);
