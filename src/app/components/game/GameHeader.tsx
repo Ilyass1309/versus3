@@ -81,6 +81,12 @@ export function GameHeader({ rulesOpen, onRulesOpenChange }: GameHeaderProps) {
           >
             Stats
           </Link>
+          <Link
+            href="/multiplayer"
+            className="text-xs font-medium px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 transition focus:outline-none focus-visible:ring ring-indigo-400/60"
+          >
+            Multiplayer
+          </Link>
           <RulesDialog
             open={rulesOpen}
             onOpenChange={onRulesOpenChange}
