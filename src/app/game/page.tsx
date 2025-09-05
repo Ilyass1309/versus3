@@ -11,6 +11,7 @@ import { Arena } from "@/app/components/game/Arena";
 import { ActionBar } from "@/app/components/game/ActionBar";
 import { BattleLog } from "@/app/components/game/BattleLog";
 import { ResultDialog } from "@/app/components/game/ResultDialog";
+import { RulesDialog } from "@/app/components/ui/RulesDialog";
 
 export default function GamePage() {
   const { nickname } = usePlayer();
@@ -26,6 +27,9 @@ export default function GamePage() {
   return (
     <GameShell>
       <GameHeader />
+      <div className="absolute top-2 right-3 z-20">
+        <RulesDialog />
+      </div>
       <Arena />
       <ActionBar />
       <BattleLog />

@@ -6,6 +6,7 @@ import { useCallback, useState } from "react";
 import { Logo } from "./components/ui/Logo";
 import { Particles } from "./components/ui/Particles";
 import { PressAnyKey } from "./components/ui/PressAnyKey";
+import { RulesDialog } from "./components/ui/RulesDialog";
 
 export default function LandingPage() {
   const r = useRouter();
@@ -36,7 +37,16 @@ export default function LandingPage() {
           <p className="mt-4 max-w-md text-slate-300/90 leading-relaxed">
             Un duel tactique éclair. Chargez. Défendez. Frappez. Maîtrisez le rythme.
           </p>
+          <div className="mt-6 flex flex-col items-center gap-4">
             <PressAnyKey onStart={start} />
+            <RulesDialog />
+            <a
+              href="/rules"
+              className="text-xs text-slate-400 hover:text-slate-200 underline"
+            >
+              Page complète des règles
+            </a>
+          </div>
         </motion.div>
       </AnimatePresence>
       <div className="absolute inset-0 backdrop-[filter:blur(40px)_brightness(0.85)] pointer-events-none" />
