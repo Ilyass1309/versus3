@@ -1,10 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { usePlayer } from "@/app/providers/PlayerProvider";
-
-// Composants du jeu (adapte les chemins si différents)
 import { GameShell } from "@/app/components/game/GameShell";
 import { GameHeader } from "@/app/components/game/GameHeader";
 import { Arena } from "@/app/components/game/Arena";
@@ -13,22 +10,34 @@ import { BattleLog } from "@/app/components/game/BattleLog";
 import { ResultDialog } from "@/app/components/game/ResultDialog";
 import { RulesDialog } from "@/app/components/ui/RulesDialog";
 
+const RULES_FLAG_KEY = "rulesSeen_v1";
+
 export default function GamePage() {
-  const { nickname } = usePlayer();
   const router = useRouter();
+  const [playerName, setPlayerName] = useState<string | null>(null); // placeholder si pas encore branché
+  const [showRules, setShowRules] = useState(false);
 
-  // Si pas de pseudo → redirige vers /nickname
+  // Exemple: si ton pseudo est déjà stocké ailleurs, supprime ce placeholder.
   useEffect(() => {
-    if (!nickname) router.replace("/nickname");
-  }, [nickname, router]);
+    // Si ton appli récupère déjà le pseudo d’une autre manière, enlève cette partie.
+    const stored = localStorage.getItem("playerName");
+    if (stored) setPlayerName(stored);
+  }, []);
 
-  if (!nickname) return null;
+  useEffect(() => {
+    if (!playerName) return;
+    if (!localStorage.getItem(RULES_FLAG_KEY)) {
+      setShowRules(true);
+      // On marque comme "vu" dès ouverture auto
+      localStorage.setItem(RULES_FLAG_KEY, "1");
+    }
+  }, [playerName]);
 
   return (
     <GameShell>
       <GameHeader />
       <div className="absolute top-2 right-3 z-20">
-        <RulesDialog />
+        <RulesDialog open={showRules} onOpenChange={setShowRules} />
       </div>
       <Arena />
       <ActionBar />

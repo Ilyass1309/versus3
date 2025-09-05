@@ -1,29 +1,65 @@
 "use client";
-import { useState, ReactNode } from "react";
+import { useState, useEffect, ReactNode } from "react";
 
 interface RulesDialogProps {
   trigger?: (open: () => void) => ReactNode;
   className?: string;
+  open?: boolean;                   // mode contrôlé (optionnel)
+  onOpenChange?: (open: boolean) => void;
+  hideDefaultTrigger?: boolean;     // si true, masque le bouton par défaut
 }
 
-export function RulesDialog({ trigger, className }: RulesDialogProps) {
-  const [open, setOpen] = useState(false);
+export function RulesDialog({
+  trigger,
+  className,
+  open,
+  onOpenChange,
+  hideDefaultTrigger
+}: RulesDialogProps) {
+  const isControlled = open !== undefined;
+  const [internalOpen, setInternalOpen] = useState(false);
+  const actualOpen = isControlled ? (open as boolean) : internalOpen;
+
+  const setOpen = (next: boolean) => {
+    if (isControlled) {
+      onOpenChange?.(next);
+    } else {
+      setInternalOpen(next);
+      onOpenChange?.(next);
+    }
+  };
+
   const openFn = () => setOpen(true);
   const closeFn = () => setOpen(false);
 
+  // Accessibilité: fermer avec ESC
+  useEffect(() => {
+    if (!actualOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeFn();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [actualOpen]);
+
   return (
     <>
-      {trigger ? (
-        trigger(openFn)
-      ) : (
-        <button
-          onClick={openFn}
-          className={className + " px-3 py-1.5 rounded bg-indigo-600/80 hover:bg-indigo-500 text-xs font-medium tracking-wide"}
-        >
-          Règles
-        </button>
-      )}
-      {open && (
+      {!hideDefaultTrigger &&
+        (trigger ? (
+          trigger(openFn)
+        ) : (
+          <button
+            onClick={openFn}
+            className={
+              (className ?? "") +
+              " px-3 py-1.5 rounded bg-indigo-600/80 hover:bg-indigo-500 text-xs font-medium tracking-wide"
+            }
+          >
+            Règles
+          </button>
+        ))}
+
+      {actualOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           role="dialog"
@@ -39,51 +75,37 @@ export function RulesDialog({ trigger, className }: RulesDialogProps) {
                 Règles du Duel
               </h2>
               <p className="text-xs text-slate-400 mb-4">
-                Comprendre le cycle pour mieux exploiter l’IA.
+                Comprends les mécaniques avant de te lancer.
               </p>
 
-              <div className="space-y-4 text-sm leading-relaxed">
+              <div className="space-y-4 text-sm leading-relaxed text-slate-300">
                 <section>
                   <h3 className="font-semibold text-indigo-300 mb-1">Actions</h3>
-                  <ul className="list-disc list-inside space-y-1 text-slate-300">
-                    <li><span className="text-indigo-200 font-medium">Attaque</span> : dépense ta charge (1 à tout) → dégâts = 8 × charge dépensée.</li>
-                    <li><span className="text-indigo-200 font-medium">Défense</span> : si tu es attaqué, dégâts subis divisés par 2 (arrondi haut).</li>
-                    <li><span className="text-indigo-200 font-medium">Charge</span> : +1 charge (max 3).</li>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Attaque: dépense ta charge ({">"}=1) → dégâts = 8 × charge dépensée.</li>
+                    <li>Défense: réduit de moitié (arrondi haut) les dégâts entrants.</li>
+                    <li>Charge: +1 charge (max 3).</li>
                   </ul>
                 </section>
-
                 <section>
-                  <h3 className="font-semibold text-indigo-300 mb-1">Charges & Dégâts</h3>
-                  <ul className="list-disc list-inside space-y-1 text-slate-300">
-                    <li>Tu choisis l’action avant de voir celle de l’adversaire (résolution simultanée).</li>
-                    <li>Attaquer à 0 charge = impossible (il faut au moins 1).</li>
-                    <li>Conserver tes charges permet une frappe massive plus tard.</li>
+                  <h3 className="font-semibold text-indigo-300 mb-1">Tour</h3>
+                  <p>Les deux joueurs choisissent simultanément. Les effets se résolvent ensuite.</p>
+                </section>
+                <section>
+                  <h3 className="font-semibold text-indigo-300 mb-1">Fin de partie</h3>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>PV à 0 → KO.</li>
+                    <li>KO simultané → nul.</li>
+                    <li>Limite de tours atteinte → comparaison des PV.</li>
                   </ul>
                 </section>
-
                 <section>
-                  <h3 className="font-semibold text-indigo-300 mb-1">Conditions de fin</h3>
-                  <ul className="list-disc list-inside space-y-1 text-slate-300">
-                    <li>PV ≤ 0: KO immédiat.</li>
-                    <li>KO simultané: match nul.</li>
-                    <li>Limite de tours atteinte: comparaison des PV restants.</li>
+                  <h3 className="font-semibold text-indigo-300 mb-1">Conseils</h3>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Accumule pour menacer une frappe.</li>
+                    <li>Défends quand tu anticipes une grosse attaque.</li>
+                    <li>Forcer l’adversaire à gaspiller ses charges est rentable.</li>
                   </ul>
-                </section>
-
-                <section>
-                  <h3 className="font-semibold text-indigo-300 mb-1">Stratégie de base</h3>
-                  <ul className="list-disc list-inside space-y-1 text-slate-300">
-                    <li>Observer le rythme: alterne charge / défense pour survivre.</li>
-                    <li>Ne vide pas toujours tout: menace {">"} action.</li>
-                    <li>Forcer l’IA à gaspiller ses charges avec des défenses.</li>
-                  </ul>
-                </section>
-
-                <section>
-                  <h3 className="font-semibold text-indigo-300 mb-1">IA & Apprentissage</h3>
-                  <p className="text-slate-300">
-                    L’IA utilise une Q-table: chaque état (HP, charge, tour…) associe une valeur à chaque action. Elle explore au début (epsilon élevé) puis exploite ses meilleures estimations.
-                  </p>
                 </section>
               </div>
 
@@ -94,13 +116,6 @@ export function RulesDialog({ trigger, className }: RulesDialogProps) {
                 >
                   Fermer
                 </button>
-                <a
-                  href="/game"
-                  className="px-4 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-sm font-medium"
-                  onClick={closeFn}
-                >
-                  Jouer
-                </a>
               </div>
             </div>
           </div>

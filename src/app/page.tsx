@@ -6,7 +6,6 @@ import { useCallback, useState } from "react";
 import { Logo } from "./components/ui/Logo";
 import { Particles } from "./components/ui/Particles";
 import { PressAnyKey } from "./components/ui/PressAnyKey";
-import { RulesDialog } from "./components/ui/RulesDialog";
 
 export default function LandingPage() {
   const r = useRouter();
@@ -39,13 +38,6 @@ export default function LandingPage() {
           </p>
           <div className="mt-6 flex flex-col items-center gap-4">
             <PressAnyKey onStart={start} />
-            <RulesDialog />
-            <a
-              href="/rules"
-              className="text-xs text-slate-400 hover:text-slate-200 underline"
-            >
-              Page complète des règles
-            </a>
           </div>
         </motion.div>
       </AnimatePresence>
