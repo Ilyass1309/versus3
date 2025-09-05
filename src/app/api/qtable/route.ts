@@ -78,7 +78,27 @@ function isCheckpointFile(v: unknown): v is CheckpointFile {
   return true;
 }
 
-function loadBestFileModel(): LoadedModel | null {
+function loadPreferredModel(): LoadedModel | null {
+  // 1. Priorité: data/qtable-francois.json
+  try {
+    const francoisPath = path.join(process.cwd(), "data", "qtable-francois.json");
+    if (fs.existsSync(francoisPath)) {
+      const raw = JSON.parse(fs.readFileSync(francoisPath, "utf-8"));
+      if (raw && raw.q && typeof raw.q === "object") {
+        const q: QTable = raw.q;
+        return {
+          version: raw.version ?? Date.now(),
+          q,
+          states: Object.keys(q).length,
+          source: "francois-file:data/qtable-francois.json",
+        };
+      }
+    }
+  } catch {
+    // ignore et on essaie les autres sources
+  }
+
+  // 2. Ancienne logique checkpoints (fallback)
   const dir = path.join(process.cwd(), "public", "checkpoints");
   let best: { file: string; ep: number; obj: CheckpointFile } | null = null;
   try {
@@ -103,7 +123,7 @@ function loadBestFileModel(): LoadedModel | null {
     };
   }
 
-  // Seed fallback
+  // 3. Seed (dernier fallback)
   try {
     const seedPath = path.join(process.cwd(), "public", "seed-qtable.json");
     const seedRaw = JSON.parse(fs.readFileSync(seedPath, "utf-8"));
@@ -127,7 +147,7 @@ async function bootstrapIfNeeded(p: Pool): Promise<boolean> {
   );
   if (active.rows.length > 0) return false;
 
-  const model = loadBestFileModel();
+  const model = loadPreferredModel();
   if (!model) return false;
 
   try {
@@ -146,7 +166,6 @@ async function bootstrapIfNeeded(p: Pool): Promise<boolean> {
     return true;
   } catch {
     await p.query("ROLLBACK").catch(() => {});
-    // Silent fail -> fallback file still served
     return false;
   }
 }
@@ -184,7 +203,7 @@ export async function GET() {
     }
   }
 
-  const fileModel = loadBestFileModel();
+  const fileModel = loadPreferredModel();
   if (fileModel) {
     return NextResponse.json({
       version: fileModel.version,
