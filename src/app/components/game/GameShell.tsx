@@ -2,6 +2,7 @@
 import { createContext, useContext, useState } from "react";
 import { useGameEngine } from "@/hooks/useGameEngine";
 import { BattleEvent, Result } from "@/hooks/useGameEngine";
+import { usePlayer } from "@/app/providers/PlayerProvider";
 
 interface Settings {
   epsilon: number;
@@ -36,9 +37,11 @@ export function GameShell({ children }: { children: React.ReactNode }) {
   const [epsilon, setEpsilon] = useState(0.05);
   const [volume, setVolume] = useState(0.6);
   const [theme, setTheme] = useState<Settings["theme"]>("system");
+  const { nickname } = usePlayer();
   const engine = useGameEngine({
     epsilon,
     onError: (m) => console.error(m),
+    nickname,
   });
 
   const settings: Settings = {

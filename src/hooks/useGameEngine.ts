@@ -4,6 +4,7 @@ import { stepWithPower, encodeState, MAX_HP, initialState } from "@/lib/rl/env";
 import { Action, State } from "@/lib/rl/types"; 
 import { useEpisodeLogger } from "./useEpisodeLogger";
 import { audio } from "@/lib/audio";
+import { usePlayer } from "@/app/providers/PlayerProvider";
 
 // Déclare localement les noms de sons utilisés (adapter si d'autres existent)
 type SfxName = "attack" | "defend" | "charge" | "win" | "lose";
@@ -34,6 +35,7 @@ interface QTableData {
 interface EngineOptions {
   epsilon: number;
   onError?: (msg: string) => void;
+  nickname?: string | null;
 }
 
 export function useGameEngine(opts: EngineOptions) {
@@ -236,6 +238,15 @@ export function useGameEngine(opts: EngineOptions) {
             opts.onError?.("Erreur en soumettant l'épisode");
           }
         })();
+
+        if (finalResultForServer === "player" && opts.nickname) {
+          // Fire and forget
+          fetch("/api/score", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ nickname: opts.nickname, result: finalResultForServer })
+          }).catch(()=>{});
+        }
       }
 
       if (mounted.current) setIsResolving(false);
@@ -270,7 +281,6 @@ export function useGameEngine(opts: EngineOptions) {
     setPlayerPending(null);
     setPlayerAttackSpend(1);
     setLastReveal(null);
-    // Réinitialise le logger pour une nouvelle partie
     episodeLogger.resetEpisode();
   }, [episodeLogger]);
 
@@ -280,7 +290,6 @@ export function useGameEngine(opts: EngineOptions) {
     return "bg-red-500";
   }, []);
 
-  // Volume (remplacement sans any)
   const volumeRef = useRef(0.6);
   const setVolume = useCallback((v: number) => {
     const clamped = Math.min(1, Math.max(0, v));
@@ -288,9 +297,7 @@ export function useGameEngine(opts: EngineOptions) {
     if (hasSetVolume(audio)) {
       try {
         audio.setVolume(clamped);
-      } catch {
-        /* ignore */
-      }
+      } catch {}
     }
   }, []);
 
@@ -310,11 +317,10 @@ export function useGameEngine(opts: EngineOptions) {
     serverStatus,
     confirm,
     restart,
-    // exposer volume setter pour GameShell
     setVolume,
-    // si tu veux lire la valeur courante ailleurs:
     volume: volumeRef.current,
     playerPick,
+    nickname: opts.nickname ?? null, 
   };
 }
 

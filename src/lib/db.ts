@@ -99,3 +99,38 @@ export async function logEpisode(params: {
     )
   `;
 }
+
+/** Player scores */
+export async function ensurePlayerScoresTable() {
+  await sql`
+    CREATE TABLE IF NOT EXISTS player_scores (
+      nickname TEXT PRIMARY KEY,
+      wins INT NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+}
+
+export async function incrementPlayerWin(nickname: string) {
+  if (!nickname) return;
+  await ensurePlayerScoresTable();
+  await sql`
+    INSERT INTO player_scores (nickname, wins)
+    VALUES (${nickname}, 1)
+    ON CONFLICT (nickname)
+    DO UPDATE SET
+      wins = player_scores.wins + 1,
+      updated_at = NOW()
+  `;
+}
+
+export async function getTopPlayers(limit = 10): Promise<Array<{ nickname: string; wins: number }>> {
+  await ensurePlayerScoresTable();
+  const { rows } = await sql<{ nickname: string; wins: number }>`
+    SELECT nickname, wins
+    FROM player_scores
+    ORDER BY wins DESC, nickname ASC
+    LIMIT ${limit}
+  `;
+  return rows;
+}

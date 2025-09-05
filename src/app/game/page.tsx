@@ -7,6 +7,7 @@ import { ActionBar } from "@/app/components/game/ActionBar";
 import { BattleLog } from "@/app/components/game/BattleLog";
 import { ResultDialog } from "@/app/components/game/ResultDialog";
 import { RulesDialog } from "@/app/components/ui/RulesDialog";
+import { Scoreboard } from "@/app/components/game/Scoreboard";
 
 const RULES_FLAG_KEY = "rulesSeen_v1";
 
@@ -38,6 +39,7 @@ export default function GamePage() {
       <ActionBar />
       <BattleLog />
       <ResultDialog />
+      <Scoreboard />
       <footer className="mt-10 text-[10px] text-slate-500">
         Prototype RL • Attaque / Défense / Charge
       </footer>
