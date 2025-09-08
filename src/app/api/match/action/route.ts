@@ -68,6 +68,8 @@ export async function POST(req: NextRequest) {
         id: m.id,
         phase: m.phase,
         turn: m.turn,
+        players: m.players,
+        actions: Object.keys(m.actions),
         hp: { p: s2.pHP, e: s2.eHP },
         charge: { p: s2.pCharge, e: s2.eCharge },
       });

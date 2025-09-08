@@ -93,13 +93,9 @@ export function usePusherMatch(matchId: string | null) {
   useEffect(() => {
     if (!matchId || !playerId || joinedRef.current) return;
     joinedRef.current = true;
-    fetch("/api/match/join", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ matchId, playerId }),
-    }).catch(() => {
-      joinedRef.current = false;
-    });
+    fetch("/api/match/join", { method:"POST", headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ matchId, playerId }) })
+    .catch(() => { joinedRef.current = false; });
   }, [matchId, playerId]);
 
   const sendAction = useCallback(
@@ -114,7 +110,6 @@ export function usePusherMatch(matchId: string | null) {
     [matchId, playerId]
   );
 
-  const isJoined = !!(state?.players?.includes?.(playerId));
-
+  const isJoined = joinedRef.current || !!(state?.players?.includes?.(playerId));
   return { playerId, state, resolving, reveal, sendAction, isJoined };
 }
