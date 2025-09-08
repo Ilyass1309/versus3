@@ -38,7 +38,7 @@ export default function SignupPage() {
         <input type="password" className="w-full px-3 py-2 rounded bg-slate-800 border border-slate-700"
           value={password} onChange={(e) => setPassword(e.target.value)} />
         {err && <div className="text-rose-400 text-xs mt-2">{err}</div>}
-        <button type="submit" className="mt-4 w-full py-2 rounded bg-sky-600 hover:bg-sky-500">S'inscrire</button>
+        <button type="submit" className="mt-4 w-full py-2 rounded bg-sky-600 hover:bg-sky-500">S&apos;inscrire</button>
         <div className="text-xs text-slate-400 mt-3">
           Déjà un compte ? <a href="/auth/login" className="text-sky-400 hover:underline">Se connecter</a>
         </div>

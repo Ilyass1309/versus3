@@ -24,15 +24,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
 
-    // reset état
-    let st;
-    try {
-      // si tu as une fonction initialState()
-      // @ts-ignore
-      st = initialState ? initialState() : initialStateFallback();
-    } catch {
-      st = initialStateFallback();
-    }
+    // reset état (fallback fiable, pas de @ts-ignore)
+    const st = initialStateFallback();
 
     m.state = { pHP: st.pHP, eHP: st.eHP, pCharge: st.pCharge, eCharge: st.eCharge, turn: 1 };
     m.actions = {};

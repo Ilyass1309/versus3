@@ -13,7 +13,7 @@ interface GameHeaderProps {
 
 export function GameHeader({ rulesOpen, onRulesOpenChange }: GameHeaderProps) {
   const { engine } = useGame();
-  const { user, setUser, logout } = usePlayer() as any;
+  const { user, logout } = usePlayer();
   const nickname = user?.nickname;
   const status = engine.serverStatus;
   const [menuOpen, setMenuOpen] = useState(false);

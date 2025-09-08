@@ -40,7 +40,7 @@ export default function LoginPage() {
         {err && <div className="text-rose-400 text-xs mt-2">{err}</div>}
         <button type="submit" className="mt-4 w-full py-2 rounded bg-emerald-600 hover:bg-emerald-500">Se connecter</button>
         <div className="text-xs text-slate-400 mt-3">
-          Pas de compte ? <a href="/auth/signup" className="text-sky-400 hover:underline">S'inscrire</a>
+          Pas de compte ? <a href="/auth/signup" className="text-sky-400 hover:underline">S&apos;inscrire</a>
         </div>
       </form>
     </div>

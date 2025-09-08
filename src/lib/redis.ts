@@ -1,8 +1,6 @@
 import Redis from "ioredis";
 
 declare global {
-  // Evite de recréer un client en dev / hot-reload
-  // eslint-disable-next-line no-var
   var __REDIS__: Redis | undefined;
 }
 

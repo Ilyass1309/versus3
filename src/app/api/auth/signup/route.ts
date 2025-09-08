@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     const u = await createUser(n, p);
     const token = await signToken({ id: u.id, name: u.nickname }, "14d");
     return NextResponse.json({ token, user: { id: u.id, nickname: u.nickname } });
-  } catch (e) {
+  } catch (_) {
     return NextResponse.json({ error: "exists" }, { status: 409 });
   }
 }
