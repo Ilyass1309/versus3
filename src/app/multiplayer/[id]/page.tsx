@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { usePusherMatch } from "@/hooks/usePusherMatch";
 
 type ActionName = "Attaquer" | "Défendre" | "Charger";
@@ -47,9 +47,11 @@ export default function MatchRoomPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const { playerId, state, resolving, reveal, sendAction, isJoined, mySide } = usePusherMatch(id);
+  const router = useRouter();
 
   const [selected, setSelected] = useState<number | null>(null);
   const [spend, setSpend] = useState<number>(0);
+  const [ended, setEnded] = useState<{ open: boolean; result?: string }>(() => ({ open: false }));
   const disabled = !isJoined || state?.phase !== "collect";
 
   // Journal de bord
@@ -130,6 +132,30 @@ export default function MatchRoomPage() {
     }
     return actionLabel(selected);
   }, [selected, spend]);
+
+  useEffect(() => {
+    // ouvre le popup si la partie est terminée (via state ou via reveal)
+    if (state?.phase === "ended") {
+      setEnded((p) => ({ ...p, open: true }));
+    } else if (reveal?.done) {
+      setEnded((p) => ({ ...p, open: true, result: reveal?.result ?? p.result }));
+    }
+  }, [state?.phase, reveal?.done, reveal?.result]);
+
+  async function rematch() {
+    if (!id || !playerId) return;
+    await fetch("/api/match/rematch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ matchId: id, playerId }),
+    }).catch(() => {});
+    // Le serveur déclenche un event "state" avec phase=collect → les deux clients repartent
+    setEnded({ open: false });
+  }
+
+  function leave() {
+    router.push("/multiplayer");
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100">
@@ -257,6 +283,25 @@ export default function MatchRoomPage() {
             </ul>
           )}
         </section>
+
+        {ended.open && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+            <div className="w-full max-w-sm rounded-xl border border-white/10 bg-slate-900/90 backdrop-blur p-5 shadow-xl">
+              <div className="text-lg font-semibold mb-2">Fin de partie</div>
+              {ended.result && (
+                <div className="text-sm text-slate-300 mb-4">Résultat: {ended.result}</div>
+              )}
+              <div className="flex items-center justify-end gap-2">
+                <button onClick={leave} className="px-3 py-2 text-sm rounded bg-slate-800 hover:bg-slate-700">
+                  Quitter
+                </button>
+                <button onClick={rematch} className="px-3 py-2 text-sm rounded bg-emerald-600 hover:bg-emerald-500">
+                  Relancer
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

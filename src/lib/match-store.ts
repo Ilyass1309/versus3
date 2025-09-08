@@ -20,6 +20,8 @@ export interface Match {
   actions: Record<string, PlayerAction>;
   turn: number;
   phase: Phase;
+  names: Record<string, string>;
+  createdByName?: string;
 }
 
 const MATCH_TTL_SECONDS = 60 * 60 * 4; // 4h
@@ -46,7 +48,7 @@ export async function setMatch(m: Match): Promise<void> {
   await redis.set(matchKey(m.id), JSON.stringify(m), "EX", MATCH_TTL_SECONDS);
 }
 
-export async function createNewMatch(id: string, initial: RLState): Promise<Match> {
+export async function createNewMatch(id: string, initial: RLState, createdByName?: string): Promise<Match> {
   const m: Match = {
     id,
     createdAt: Date.now(),
@@ -55,6 +57,8 @@ export async function createNewMatch(id: string, initial: RLState): Promise<Matc
     actions: {},
     turn: initial.turn ?? 1,
     phase: "collect",
+    names: {},
+    createdByName,
   };
   await setMatch(m);
   // index pour la liste des salons (score = createdAt)
@@ -94,7 +98,7 @@ export async function acquireMatchLock(
 }
 
 // Liste des salons ouverts (non complets)
-export async function listOpenMatches(limit = 50): Promise<Array<{ id: string; players: number; createdAt: number }>> {
+export async function listOpenMatches(limit = 50): Promise<Array<{ id: string; players: number; createdAt: number; createdBy?: string }>> {
   const ids = await redis.zrevrange(INDEX_KEY, 0, Math.max(0, limit - 1));
   if (ids.length === 0) return [];
 
@@ -102,7 +106,7 @@ export async function listOpenMatches(limit = 50): Promise<Array<{ id: string; p
   const pipeline = redis.pipeline();
   for (const id of ids) pipeline.get(matchKey(id));
 
-  const out: Array<{ id: string; players: number; createdAt: number }> = [];
+  const out: Array<{ id: string; players: number; createdAt: number; createdBy?: string }> = [];
   const toCleanup: string[] = [];
 
   const execRes = await pipeline.exec();
@@ -121,7 +125,7 @@ export async function listOpenMatches(limit = 50): Promise<Array<{ id: string; p
       const playersCount = m.players?.length ?? 0;
       const ended = m.phase === "ended";
       if (playersCount < 2 && !ended) {
-        out.push({ id: m.id, players: playersCount, createdAt: m.createdAt });
+        out.push({ id: m.id, players: playersCount, createdAt: m.createdAt, createdBy: m.createdByName });
       } else {
         toCleanup.push(id);
       }

@@ -5,14 +5,16 @@ import { useRouter } from "next/navigation";
 import { getPusher } from "@/lib/pusher-client";
 import { lobbyChannel } from "@/lib/pusher-channel";
 import { usePusherMatch } from "@/hooks/usePusherMatch";
+import { usePlayer } from "@/app/providers/PlayerProvider";
 
-type Room = { id: string; players: number; createdAt: number };
+type Room = { id: string; players: number; createdAt: number; createdBy?: string };
 
 export default function MultiplayerPage() {
   const router = useRouter();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [current, setCurrent] = useState<string | null>(null);
   const { playerId, state, sendAction, reveal, isJoined } = usePusherMatch(current);
+  const { user } = usePlayer();
 
   // Charger la liste initiale
   useEffect(() => {
@@ -62,7 +64,11 @@ export default function MultiplayerPage() {
 
   // Créer un salon
   async function create() {
-    const r = await fetch("/api/match/create", { method: "POST" });
+    const r = await fetch("/api/match/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: user?.nickname }),
+    });
     if (!r.ok) return;
     const j = await r.json();
     setCurrent(j.matchId);
@@ -97,8 +103,9 @@ export default function MultiplayerPage() {
       </div>
 
       <div className="rounded border border-zinc-800 overflow-hidden">
-        <div className="grid grid-cols-3 bg-zinc-900/60 px-4 py-2 text-xs uppercase tracking-wide text-zinc-400">
+        <div className="grid grid-cols-4 bg-zinc-900/60 px-4 py-2 text-xs uppercase tracking-wide text-zinc-400">
           <div>Match ID</div>
+          <div>Créateur</div>
           <div>Joueurs</div>
           <div>Action</div>
         </div>
@@ -106,8 +113,9 @@ export default function MultiplayerPage() {
           <div className="px-4 py-6 text-sm text-zinc-500">Aucun salon disponible</div>
         ) : (
           openRooms.map(r => (
-            <div key={r.id} className="grid grid-cols-3 items-center px-4 py-3 border-t border-zinc-800">
+            <div key={r.id} className="grid grid-cols-4 items-center px-4 py-3 border-t border-zinc-800">
               <div className="font-mono text-sm">{r.id}</div>
+              <div className="text-sm">{r.createdBy ?? "-"}</div>
               <div className="text-sm">{r.players} / 2</div>
               <div>
                 <button

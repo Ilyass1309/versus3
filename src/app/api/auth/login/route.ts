@@ -1,41 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifyPassword } from "@/lib/user-store";
 import { signToken } from "@/lib/auth/jwt";
-import { findUserByNickname, createSession } from "@/lib/db";
-import bcrypt from "bcryptjs";
 
 export const runtime = "nodejs";
 export const preferredRegion = ["fra1"];
 
-function newId() {
-  return Math.random().toString(36).slice(2, 10);
-}
-
-function setSessionCookie(res: NextResponse, token: string, expires: Date) {
-  res.cookies.set("session", token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    expires
-  });
-}
-
-export async function POST(req: Request | NextRequest) {
-  try {
-    const { nickname, password } = await req.json().catch(() => ({}));
-    if (typeof nickname !== "string" || typeof password !== "string") {
-      return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
-    }
-    const user = await findUserByNickname(nickname);
-    if (!user) return NextResponse.json({ error: "invalid_credentials" }, { status: 401 });
-    const ok = await bcrypt.compare(password, user.password_hash);
-    if (!ok) return NextResponse.json({ error: "invalid_credentials" }, { status: 401 });
-
-    const { token, expires } = await createSession(user.id);
-    const res = NextResponse.json({ user: { id: user.id, nickname } });
-    setSessionCookie(res, token, expires);
-    return res;
-  } catch {
-    return NextResponse.json({ error: "server_error" }, { status: 500 });
-  }
+export async function POST(req: NextRequest) {
+  const { nickname, password } = await req.json();
+  const n = String(nickname ?? "").trim();
+  const p = String(password ?? "");
+  const u = await verifyPassword(n, p);
+  if (!u) return NextResponse.json({ error: "invalid_credentials" }, { status: 401 });
+  const token = await signToken({ id: u.id, name: u.nickname }, "14d");
+  return NextResponse.json({ token, user: { id: u.id, nickname: u.nickname } });
 }
