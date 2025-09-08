@@ -886,5 +886,29 @@
     "epsilon": 0.5,
     "full": false,
     "qCountStored": 3000
+  },
+  {
+    "episode": 10300000,
+    "timestamp": 1757322853382,
+    "coveragePct": 66.748,
+    "states": 19668,
+    "minVisits": 1,
+    "maxVisits": 12040000,
+    "avgVisits": 14363.3,
+    "epsilon": 0.5,
+    "full": false,
+    "qCountStored": 3000
+  },
+  {
+    "episode": 10350000,
+    "timestamp": 1757323096432,
+    "coveragePct": 66.752,
+    "states": 19669,
+    "minVisits": 1,
+    "maxVisits": 12090000,
+    "avgVisits": 14403.3,
+    "epsilon": 0.5,
+    "full": false,
+    "qCountStored": 3000
   }
 ]

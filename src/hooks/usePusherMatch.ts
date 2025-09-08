@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import type Pusher from "pusher-js";
 import { matchChannel } from "@/lib/pusher-channel";
 import { getPusher } from "@/lib/pusher-client";
@@ -99,17 +99,36 @@ export function usePusherMatch(matchId: string | null) {
   }, [matchId, playerId]);
 
   const sendAction = useCallback(
-    async (action: number, spend = 0) => {
+    async (action: number, spend?: number) => {
       if (!matchId || !playerId) return;
+
+      // Détermine mon côté pour lire la charge
+      const mySide: "p" | "e" | null = (() => {
+        const idx = state?.players?.indexOf?.(playerId) ?? -1;
+        return idx === 0 ? "p" : idx === 1 ? "e" : null;
+      })();
+
+      // spend par défaut: 1 si attaque et assez de charge
+      let s = spend;
+      if ((s == null || s <= 0) && action === 0) {
+        const ch = mySide === "p" ? state?.charge?.p ?? 0 : mySide === "e" ? state?.charge?.e ?? 0 : 0;
+        s = ch > 0 ? 1 : 0;
+      }
+
       await fetch("/api/match/action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ matchId, playerId, action, spend }),
+        body: JSON.stringify({ matchId, playerId, action, spend: s ?? 0 }),
       });
     },
-    [matchId, playerId]
+    [matchId, playerId, state]
   );
 
-  const isJoined = joinedRef.current || !!(state?.players?.includes?.(playerId));
-  return { playerId, state, resolving, reveal, sendAction, isJoined };
+  const isJoined = !!(state?.players?.includes?.(playerId));
+  const mySide = useMemo<"p" | "e" | null>(() => {
+    const idx = state?.players?.indexOf?.(playerId) ?? -1;
+    return idx === 0 ? "p" : idx === 1 ? "e" : null;
+  }, [state?.players, playerId]);
+
+  return { playerId, state, resolving, reveal, sendAction, isJoined, mySide };
 }

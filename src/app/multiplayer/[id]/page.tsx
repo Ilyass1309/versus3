@@ -32,7 +32,8 @@ function HealthBar({ hp, max = 20, color = "emerald" }: { hp: number; max?: numb
 function ChargePips({ value, color = "emerald" }: { value: number; color?: "emerald" | "rose" }) {
   const pipOn = color === "rose" ? "bg-rose-400" : "bg-emerald-400";
   const pipOff = "bg-slate-700";
-  const arr = Array.from({ length: 10 }, (_, i) => i < value);
+  const max = 3;
+  const arr = Array.from({ length: max }, (_, i) => i < Math.min(value, max));
   return (
     <div className="flex gap-1">
       {arr.map((on, i) => (
@@ -45,7 +46,7 @@ function ChargePips({ value, color = "emerald" }: { value: number; color?: "emer
 export default function MatchRoomPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
-  const { playerId, state, resolving, reveal, sendAction, isJoined } = usePusherMatch(id);
+  const { playerId, state, resolving, reveal, sendAction, isJoined, mySide } = usePusherMatch(id);
 
   const [selected, setSelected] = useState<number | null>(null);
   const disabled = !isJoined || state?.phase !== "collect";
@@ -92,10 +93,10 @@ export default function MatchRoomPage() {
     }
   }, [phase, turn]);
 
-  const hpYou = state?.hp.p ?? 0;
-  const hpEnemy = state?.hp.e ?? 0;
-  const chYou = state?.charge.p ?? 0;
-  const chEnemy = state?.charge.e ?? 0;
+  const hpYou = mySide === "e" ? state?.hp.e ?? 0 : mySide === "p" ? state?.hp.p ?? 0 : 0;
+  const hpEnemy = mySide === "e" ? state?.hp.p ?? 0 : mySide === "p" ? state?.hp.e ?? 0 : 0;
+  const chYou = mySide === "e" ? state?.charge.e ?? 0 : mySide === "p" ? state?.charge.p ?? 0 : 0;
+  const chEnemy = mySide === "e" ? state?.charge.p ?? 0 : mySide === "p" ? state?.charge.e ?? 0 : 0;
 
   const ringIf = (a: number) =>
     selected === a ? "ring-2 ring-offset-2 ring-offset-slate-900 ring-amber-400" : "";
@@ -103,8 +104,7 @@ export default function MatchRoomPage() {
   async function onSelectAction(a: number) {
     if (disabled) return;
     setSelected(a);
-    // Pour l’attaque, on pourrait ajouter un “spend” plus tard (slider). Ici, 0 par défaut.
-    await sendAction(a, 0);
+    await sendAction(a); // spend par défaut calculé dans le hook
   }
 
   const selectedLabel = useMemo(() => actionLabel(selected), [selected]);
