@@ -24,6 +24,7 @@ interface StateEvent {
   charge: { p: number; e: number };
   players?: string[];
   actions?: string[];
+  names?: Record<string, string>;
 }
 
 // Alias pour cohérence interne
