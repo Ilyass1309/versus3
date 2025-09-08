@@ -11,6 +11,8 @@ export default function MultiplayerPage() {
   const [leaderboard, setLeaderboard] = useState<ScoreRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [roomLoading, setRoomLoading] = useState(false);
+  const [roomMessage, setRoomMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -35,6 +37,59 @@ export default function MultiplayerPage() {
       clearInterval(iv);
     };
   }, []);
+
+  async function handleCreate() {
+    setRoomLoading(true);
+    setRoomMessage(null);
+    try {
+      const name = localStorage.getItem("nickname") ?? "guest";
+      const res = await fetch("/api/match/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setRoomMessage("Erreur création : " + (body?.error ?? "server"));
+      } else {
+        const id = body?.matchId ?? body?.id ?? "unknown";
+        setRoomMessage("Salle créée: " + id);
+        // optionnel : naviguer vers la page de match si implémentée
+        // router.push(`/multiplayer/room/${id}`);
+      }
+    } catch {
+      setRoomMessage("Erreur réseau");
+    } finally {
+      setRoomLoading(false);
+    }
+  }
+
+  async function handleJoin() {
+    const roomId = prompt("ID de la salle à rejoindre:");
+    if (!roomId) return;
+    setRoomLoading(true);
+    setRoomMessage(null);
+    try {
+      const playerId = localStorage.getItem("nickname") ?? Math.random().toString(36).slice(2, 8);
+      const res = await fetch("/api/match/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ matchId: roomId, playerId }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setRoomMessage("Erreur join : " + (body?.error ?? "server"));
+      } else {
+        setRoomMessage("Rejoint: " + (body?.state?.id ?? roomId));
+        // si tu as une page de room, rediriger :
+        // router.push(`/multiplayer/room/${body.state.id ?? roomId}`);
+      }
+    } catch {
+      setRoomMessage("Erreur réseau");
+    } finally {
+      setRoomLoading(false);
+    }
+  }
 
   return (
     <GameShell>
@@ -71,20 +126,32 @@ export default function MultiplayerPage() {
                 <h3 className="font-medium text-slate-100">Rejoindre une partie</h3>
                 <p className="text-sm text-slate-400 mt-1">Rejoins un adversaire al&eacute;atoire ou choisi.</p>
                 <div className="mt-4">
-                  <button className="px-3 py-2 rounded bg-emerald-500 text-black font-medium hover:bg-emerald-600">
-                    Rejoindre
+                  <button
+                    onClick={handleJoin}
+                    className="px-3 py-2 rounded bg-emerald-500 text-black font-medium hover:bg-emerald-600"
+                  >
+                    {roomLoading ? "Chargement..." : "Rejoindre"}
                   </button>
                 </div>
+                {roomMessage && (
+                  <p className="text-sm text-slate-400 mt-2">{roomMessage}</p>
+                )}
               </div>
 
               <div className="p-4 rounded-md bg-slate-800 border border-slate-700">
                 <h3 className="font-medium text-slate-100">Créer une partie</h3>
                 <p className="text-sm text-slate-400 mt-1">Crée une salle et attends un adversaire.</p>
                 <div className="mt-4">
-                  <button className="px-3 py-2 rounded bg-indigo-500 text-white font-medium hover:bg-indigo-600">
-                    Créer
+                  <button
+                    onClick={handleCreate}
+                    className="px-3 py-2 rounded bg-indigo-500 text-white font-medium hover:bg-indigo-600"
+                  >
+                    {roomLoading ? "Chargement..." : "Créer"}
                   </button>
                 </div>
+                {roomMessage && (
+                  <p className="text-sm text-slate-400 mt-2">{roomMessage}</p>
+                )}
               </div>
             </div>
           </section>

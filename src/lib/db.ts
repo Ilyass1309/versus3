@@ -251,3 +251,85 @@ export async function incrementAuthedPlayerWin(userId: number) {
                   updated_at = NOW()
   `;
 }
+
+/* --- Multijoueur : rooms + multiplayer points --- */
+
+export async function ensureMultiplayerTables() {
+  // rooms
+  await sql`
+    CREATE TABLE IF NOT EXISTS rooms (
+      id TEXT PRIMARY KEY,
+      host_nickname TEXT NOT NULL,
+      players JSONB NOT NULL DEFAULT '[]'::jsonb,
+      status TEXT NOT NULL DEFAULT 'open',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  // multiplayer points (ranking separate from AI wins)
+  await sql`
+    CREATE TABLE IF NOT EXISTS multiplayer_points (
+      nickname TEXT PRIMARY KEY,
+      points INT NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+}
+
+export async function createRoom(hostNickname: string) {
+  await ensureMultiplayerTables();
+  const id = Math.random().toString(36).slice(2, 10);
+  await sql`
+    INSERT INTO rooms (id, host_nickname, players, status)
+    VALUES (${id}, ${hostNickname}, ${JSON.stringify([hostNickname])}::jsonb, 'open')
+  `;
+  return { id, host: hostNickname };
+}
+
+export async function joinRoom(roomId: string, nickname: string) {
+  await ensureMultiplayerTables();
+  const rows = await sql<{ id: string; players: unknown[]; status: string }>`
+    SELECT id, players, status FROM rooms WHERE id = ${roomId} LIMIT 1
+  `;
+  const r = rows[0];
+  if (!r) throw new Error("room_not_found");
+  if (r.status !== "open") throw new Error("room_not_open");
+  // append nickname if not present
+  const players = Array.isArray(r.players) ? [...r.players as string[]] : [];
+  if (!players.includes(nickname)) players.push(nickname);
+  await sql`
+    UPDATE rooms SET players = ${JSON.stringify(players)}::jsonb WHERE id = ${roomId}
+  `;
+  return { id: roomId, players };
+}
+
+/* Multiplayer ranking helpers */
+export async function addMultiplayerPointsToNickname(nickname: string, delta: number) {
+  if (!nickname) return;
+  await ensureMultiplayerTables();
+  await sql`
+    INSERT INTO multiplayer_points (nickname, points)
+    VALUES (${nickname}, ${delta})
+    ON CONFLICT (nickname)
+    DO UPDATE SET
+      points = multiplayer_points.points + ${delta},
+      updated_at = NOW()
+  `;
+}
+
+export async function addMultiplayerPointsToUserId(userId: number, delta: number) {
+  if (!userId) return;
+  const rows = await sql<{ nickname: string }>`SELECT nickname FROM users WHERE id = ${userId}`;
+  const row = rows[0];
+  if (!row) return;
+  await addMultiplayerPointsToNickname(row.nickname, delta);
+}
+
+export async function getMultiplayerLeaderboard(limit = 10): Promise<Array<{ nickname: string; points: number }>> {
+  await ensureMultiplayerTables();
+  const rows = await sql<{ nickname: string; points: number }>`
+    SELECT nickname, points FROM multiplayer_points
+    ORDER BY points DESC, nickname ASC
+    LIMIT ${limit}
+  `;
+  return rows;
+}
