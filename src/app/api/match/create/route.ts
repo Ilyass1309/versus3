@@ -5,7 +5,7 @@ import { createNewMatch } from "@/lib/match-store";
 import { lobbyChannel, matchChannel } from "@/lib/pusher-channel";
 
 export const runtime = "nodejs";
-export const preferredRegion = ["iad1"];
+export const preferredRegion = ["fra1"];
 
 export async function POST(req: NextRequest) {
   try {
