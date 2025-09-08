@@ -22,6 +22,7 @@ export interface Match {
   phase: Phase;
   names: Record<string, string>;
   createdByName?: string;
+  rematchReady?: string[]; // playerIds qui ont cliqué "Relancer"
 }
 
 const MATCH_TTL_SECONDS = 60 * 60 * 4; // 4h
@@ -59,6 +60,7 @@ export async function createNewMatch(id: string, initial: RLState, createdByName
     phase: "collect",
     names: {},
     createdByName,
+    rematchReady: [],
   };
   await setMatch(m);
   // index pour la liste des salons (score = createdAt)

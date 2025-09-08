@@ -46,13 +46,16 @@ function ChargePips({ value, color = "emerald" }: { value: number; color?: "emer
 export default function MatchRoomPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
-  const { playerId, state, resolving, reveal, sendAction, isJoined, mySide } = usePusherMatch(id);
+  const { playerId, state, resolving, reveal, rematch, sendAction, isJoined, mySide } = usePusherMatch(id);
   const router = useRouter();
-
   const [selected, setSelected] = useState<number | null>(null);
   const [spend, setSpend] = useState<number>(0);
-  const [ended, setEnded] = useState<{ open: boolean; result?: string }>(() => ({ open: false }));
   const disabled = !isJoined || state?.phase !== "collect";
+  const [ended, setEnded] = useState<{ open: boolean; result?: string }>(() => ({ open: false }));
+  const [wantsRematch, setWantsRematch] = useState(false);
+  const [waiting, setWaiting] = useState(false);
+  const [deadline, setDeadline] = useState<number | null>(null);
+  const AI_ROUTE = "/game";
 
   // Journal de bord
   const [log, setLog] = useState<string[]>([]);
@@ -133,8 +136,34 @@ export default function MatchRoomPage() {
     return actionLabel(selected);
   }, [selected, spend]);
 
+  // Détection de fin + message résultat avec pseudo vainqueur
+  function winnerLine() {
+    const players = state?.players ?? [];
+    const names = (state as any)?.names ?? {};
+    // Priorité au résultat de reveal si présent
+    const res = reveal?.result;
+    if (res === "p" || res === "e") {
+      const idx = res === "p" ? 0 : 1;
+      const wid = players[idx];
+      const winName = (wid && names[wid]) || (idx === 0 ? "Joueur P" : "Joueur E");
+      return `Victoire: ${winName}`;
+    }
+    // Fallback: calcule via HP
+    const hp = reveal?.hp ?? state?.hp;
+    if (!hp) return undefined;
+    if (hp.p <= 0 && hp.e <= 0) return "Match nul";
+    if (hp.p > hp.e) {
+      const wid = players[0];
+      return `Victoire: ${wid ? names[wid] ?? "Joueur P" : "Joueur P"}`;
+    }
+    if (hp.e > hp.p) {
+      const wid = players[1];
+      return `Victoire: ${wid ? names[wid] ?? "Joueur E" : "Joueur E"}`;
+    }
+    return undefined;
+  }
+
   useEffect(() => {
-    // ouvre le popup si la partie est terminée (via state ou via reveal)
     if (state?.phase === "ended") {
       setEnded((p) => ({ ...p, open: true }));
     } else if (reveal?.done) {
@@ -142,15 +171,58 @@ export default function MatchRoomPage() {
     }
   }, [state?.phase, reveal?.done, reveal?.result]);
 
-  async function rematch() {
+  // Si le serveur redémarre la partie → fermer le popup et réinitialiser l’attente
+  useEffect(() => {
+    if (state?.phase === "collect" && ended.open) {
+      setEnded({ open: false });
+      setWantsRematch(false);
+      setWaiting(false);
+      setDeadline(null);
+    }
+  }, [state?.phase, ended.open]);
+
+  // Met à jour l’attente si l’autre joueur est prêt
+  const bothReady = (() => {
+    const ready = rematch?.ready ?? [];
+    return state?.players ? state.players.every(pid => ready.includes(pid)) : false;
+  })();
+
+  useEffect(() => {
+    if (!wantsRematch) return;
+    if (bothReady) {
+      // Le serveur va envoyer state.phase=collect (géré plus haut)
+      setWaiting(false);
+      return;
+    }
+    // Démarre/maintient le timer de fallback IA
+    if (!deadline) {
+      const t = Date.now() + 12000; // 12s d’attente
+      setDeadline(t);
+    }
+    const idTimer = setInterval(() => {
+      if (!deadline) return;
+      if (Date.now() >= deadline) {
+        clearInterval(idTimer);
+        setWaiting(false);
+        setWantsRematch(false);
+        setDeadline(null);
+        router.push(AI_ROUTE);
+      }
+    }, 300);
+    return () => clearInterval(idTimer);
+  }, [wantsRematch, bothReady, deadline, router]);
+
+  async function onClickRematch() {
     if (!id || !playerId) return;
-    await fetch("/api/match/rematch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ matchId: id, playerId }),
-    }).catch(() => {});
-    // Le serveur déclenche un event "state" avec phase=collect → les deux clients repartent
-    setEnded({ open: false });
+    setWantsRematch(true);
+    setWaiting(true);
+    try {
+      await fetch("/api/match/rematch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ matchId: id, playerId }),
+      });
+    } catch {}
   }
 
   function leave() {
@@ -287,17 +359,26 @@ export default function MatchRoomPage() {
         {ended.open && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
             <div className="w-full max-w-sm rounded-xl border border-white/10 bg-slate-900/90 backdrop-blur p-5 shadow-xl">
-              <div className="text-lg font-semibold mb-2">Fin de partie</div>
-              {ended.result && (
-                <div className="text-sm text-slate-300 mb-4">Résultat: {ended.result}</div>
-              )}
-              <div className="flex items-center justify-end gap-2">
+              <div className="text-lg font-semibold mb-1">Fin de partie</div>
+              <div className="text-sm text-slate-300 mb-4">
+                {winnerLine() ?? "Partie terminée"}
+              </div>
+              <div className="flex items-center justify-between gap-2">
                 <button onClick={leave} className="px-3 py-2 text-sm rounded bg-slate-800 hover:bg-slate-700">
                   Quitter
                 </button>
-                <button onClick={rematch} className="px-3 py-2 text-sm rounded bg-emerald-600 hover:bg-emerald-500">
-                  Relancer
-                </button>
+                {!wantsRematch ? (
+                  <button onClick={onClickRematch} className="px-3 py-2 text-sm rounded bg-emerald-600 hover:bg-emerald-500">
+                    Relancer
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+                    <span className="text-xs text-slate-300">
+                      En attente de l’autre joueur…
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

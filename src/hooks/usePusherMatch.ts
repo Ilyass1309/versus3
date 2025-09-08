@@ -14,6 +14,8 @@ interface ResolutionEvent {
   result: string | null;
 }
 
+interface RematchEvent { ready: string[] }
+
 interface StateEvent {
   id: string;
   turn: number;
@@ -33,6 +35,7 @@ export function usePusherMatch(matchId: string | null) {
   const [state, setState] = useState<MatchState | null>(null);
   const [resolving, setResolving] = useState(false);
   const [reveal, setReveal] = useState<ResolutionEvent | null>(null);
+  const [rematch, setRematch] = useState<RematchEvent | null>(null);
   const joinedRef = useRef(false);
 
   // reset le flag quand on change de match
@@ -64,25 +67,19 @@ export function usePusherMatch(matchId: string | null) {
     p.connection.bind("connected", onConnected);
     ch.bind("pusher:subscription_succeeded", onConnected);
 
-    const onState = (s: StateEvent) => {
-      if (cancelled) return;
-      setState(s);
-      setResolving(false);
-    };
-    const onResolution = (r: ResolutionEvent) => {
-      if (cancelled) return;
-      setReveal(r);
-      setResolving(true);
-      if (r.done) setTimeout(() => !cancelled && setResolving(false), 800);
-    };
+    const onState = (s: StateEvent) => { if (!cancelled) { setState(s); setResolving(false); } };
+    const onResolution = (r: ResolutionEvent) => { if (!cancelled) { setReveal(r); setResolving(true); } };
+    const onRematch = (r: RematchEvent) => { if (!cancelled) setRematch(r); };
 
     ch.bind("state", onState);
     ch.bind("resolution", onResolution);
+    ch.bind("rematch", onRematch);
 
     return () => {
       cancelled = true;
       ch.unbind("state", onState);
       ch.unbind("resolution", onResolution);
+      ch.unbind("rematch", onRematch);
       ch.unbind("pusher:subscription_succeeded", onConnected);
       p.connection.unbind("connected", onConnected);
       try {
@@ -134,5 +131,5 @@ export function usePusherMatch(matchId: string | null) {
     return idx === 0 ? "p" : idx === 1 ? "e" : null;
   }, [state?.players, playerId]);
 
-  return { playerId, state, resolving, reveal, sendAction, isJoined, mySide };
+  return { playerId, state, resolving, reveal, rematch, sendAction, isJoined, mySide };
 }
