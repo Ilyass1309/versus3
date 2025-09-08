@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pusherServer } from "@/lib/pusher-server";
 import { matchChannel, lobbyChannel } from "@/lib/pusher-channel";
-import { getMatch, setMatch, Match, removeFromIndex } from "@/lib/match-store";
+import { getMatch, setMatch, removeFromIndex } from "@/lib/match-store";
 
 export const runtime = "nodejs";
 export const preferredRegion = ["iad1"];

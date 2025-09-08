@@ -68,8 +68,10 @@ export default function MatchRoomPage() {
       return `${base}`;
     };
 
+    const revMap = reveal.reveal as Record<string, { action: number; spend: number }>;
     for (const pid of keys) {
-      const r = (reveal.reveal as any)[pid] as { action: number; spend: number };
+      const r = revMap[pid];
+      if (!r) continue; // sécurité: clé manquante
       const who = pid === youId ? "Vous" : "Adversaire";
       entries.push(`${who}: ${describe(r.action, r.spend)}`);
     }
@@ -81,13 +83,14 @@ export default function MatchRoomPage() {
     setLog(prev => [header, ...entries, hpLine, ...(result ? [result] : []), ...prev].slice(0, 200));
   }, [reveal, playerId]);
 
-  // Réinitialiser la sélection après chaque retour en phase "collect" d’un nouveau tour
+  // Réinitialiser la sélection après chaque retour en phase "collect"
+  const phase = state?.phase;
+  const turn = state?.turn;
   useEffect(() => {
-    if (!state) return;
-    if (state.phase === "collect") {
+    if (phase === "collect") {
       setSelected(null);
     }
-  }, [state?.phase, state?.turn]);
+  }, [phase, turn]);
 
   const hpYou = state?.hp.p ?? 0;
   const hpEnemy = state?.hp.e ?? 0;

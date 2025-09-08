@@ -874,5 +874,17 @@
     "epsilon": 0.5,
     "full": false,
     "qCountStored": 3000
+  },
+  {
+    "episode": 10250000,
+    "timestamp": 1757322603405,
+    "coveragePct": 66.738,
+    "states": 19665,
+    "minVisits": 1,
+    "maxVisits": 11990000,
+    "avgVisits": 14324.63,
+    "epsilon": 0.5,
+    "full": false,
+    "qCountStored": 3000
   }
 ]
