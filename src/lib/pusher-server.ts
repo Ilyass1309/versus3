@@ -1,10 +1,21 @@
 import Pusher from "pusher";
 
+const {
+  PUSHER_APP_ID,
+  PUSHER_KEY,
+  PUSHER_SECRET,
+  PUSHER_CLUSTER,
+} = process.env;
+
+if (!PUSHER_APP_ID || !PUSHER_KEY || !PUSHER_SECRET || !PUSHER_CLUSTER) {
+  console.warn("[pusher] Missing env vars. Set PUSHER_* and NEXT_PUBLIC_PUSHER_* in Vercel.");
+}
+
 export const pusherServer = new Pusher({
-  appId: process.env.PUSHER_APP_ID!,
-  key: process.env.PUSHER_KEY!,
-  secret: process.env.PUSHER_SECRET!,
-  cluster: process.env.PUSHER_CLUSTER!,
+  appId: PUSHER_APP_ID || "dummy",
+  key: PUSHER_KEY || "dummy",
+  secret: PUSHER_SECRET || "dummy",
+  cluster: PUSHER_CLUSTER || "eu",
   useTLS: true,
 });
 

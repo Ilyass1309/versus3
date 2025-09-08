@@ -10,6 +10,10 @@ export default function MultiplayerPage() {
 
   async function create() {
     const r = await fetch("/api/match/create", { method: "POST" });
+    if (!r.ok) {
+      console.error("Create failed", r.status);
+      return;
+    }
     const j = await r.json();
     setMatchId(j.matchId);
     setCurrent(j.matchId);
