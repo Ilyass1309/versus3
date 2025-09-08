@@ -26,11 +26,9 @@ export default function LoginPage() {
         setLoading(false);
         return;
       }
-      // optionally persist token
       if (body?.token) localStorage.setItem("token", body.token);
-      // redirect to game
       router.push("/game");
-    } catch (err) {
+    } catch {
       setError("server_error");
       setLoading(false);
     }

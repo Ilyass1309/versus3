@@ -28,7 +28,7 @@ export default function SignupPage() {
       }
       if (body?.token) localStorage.setItem("token", body.token);
       router.push("/game");
-    } catch (err) {
+    } catch {
       setError("server_error");
       setLoading(false);
     }

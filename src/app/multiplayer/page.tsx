@@ -19,10 +19,9 @@ export default function MultiplayerPage() {
       try {
         const res = await fetch("/api/scoreboard");
         const body = await res.json().catch(() => ({}));
-        // support different shapes: { top: [...] } or { leaderboard: [...] } or { top: [...] }
-        const list = body?.top ?? body?.leaderboard ?? body?.leaderboard ?? [];
+        const list = body?.top ?? body?.leaderboard ?? [];
         if (mounted) setLeaderboard(list);
-      } catch (e) {
+      } catch {
         if (mounted) setError("Impossible de charger le classement");
       } finally {
         if (mounted) setLoading(false);
@@ -45,7 +44,7 @@ export default function MultiplayerPage() {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h1 className="text-2xl font-semibold text-slate-800">Salle Multijoueur</h1>
-                <p className="text-sm text-slate-500">Rejoins ou crée une partie pour affronter d'autres joueurs.</p>
+                <p className="text-sm text-slate-500">Rejoins ou cr&eacute;e une partie pour affronter d&apos;autres joueurs.</p>
               </div>
 
               {/* Retour au jeu - repositionné et recoloré */}
@@ -63,18 +62,18 @@ export default function MultiplayerPage() {
             {/* Placeholder pour le contenu multijoueur (liste de rooms / matchmaking) */}
             <section className="rounded-md border border-slate-100 p-4 bg-gradient-to-b from-white to-slate-50">
               <p className="text-sm text-slate-500 mb-4">
-                Ici s'affichera la liste des parties, l'état des matchs, et les contrôles de lobby.
+                Ici s&apos;affichera la liste des parties, l&apos;&eacute;tat des matchs, et les contr&ocirc;les de lobby.
               </p>
 
-              {/* Exemple d'UI simplifiée */}
+              {/* Exemple d'UI simplifi&eacute;e */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-4 rounded-md border border-dashed border-slate-200">
                   <h3 className="font-medium">Rejoindre une partie</h3>
-                  <p className="text-sm text-slate-500">Rejoins un adversaire aléatoire ou choisi.</p>
+                  <p className="text-sm text-slate-500">Rejoins un adversaire al&eacute;atoire ou choisi.</p>
                 </div>
                 <div className="p-4 rounded-md border border-dashed border-slate-200">
-                  <h3 className="font-medium">Créer une partie</h3>
-                  <p className="text-sm text-slate-500">Crée une salle et attends un adversaire.</p>
+                  <h3 className="font-medium">Cr&eacute;er une partie</h3>
+                  <p className="text-sm text-slate-500">Cr&eacute;e une salle et attends un adversaire.</p>
                 </div>
               </div>
             </section>
@@ -87,12 +86,11 @@ export default function MultiplayerPage() {
                 <div>
                   <h2 className="text-lg font-semibold text-slate-800">Classement Multijoueur</h2>
                   <p className="text-xs text-slate-500">
-                    Victoires entre joueurs — différent du classement contre l'IA (page Jeu).
+                    Victoires entre joueurs — diff&eacute;rent du classement contre l&apos;IA (page Jeu).
                   </p>
                 </div>
                 <button
                   onClick={() => {
-                    // refresh leaderboard
                     setLoading(true);
                     setLeaderboard([]);
                     fetch("/api/scoreboard")
