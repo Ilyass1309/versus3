@@ -101,7 +101,7 @@ export async function ensurePlayerPointsTable() {
   await sql`
     CREATE TABLE IF NOT EXISTS player_scores (
       nickname TEXT PRIMARY KEY,
-      points INT NOT NULL DEFAULT 0,
+      wins INT NOT NULL DEFAULT 0,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
@@ -111,11 +111,11 @@ export async function addPointsToNickname(nickname: string, delta: number) {
   if (!nickname) return;
   await ensurePlayerPointsTable();
   await sql`
-    INSERT INTO player_scores (nickname, points)
+    INSERT INTO player_scores (nickname, wins)
     VALUES (${nickname}, ${delta})
     ON CONFLICT (nickname)
     DO UPDATE SET
-      points = player_scores.points + ${delta},
+      wins = player_scores.wins + ${delta},
       updated_at = NOW()
   `;
 }
@@ -133,9 +133,9 @@ export async function addPointsToUserId(userId: number, delta: number) {
 export async function getLeaderboard(limit = 10): Promise<Array<{ nickname: string; points: number }>> {
   await ensurePlayerPointsTable();
   const rows = await sql<{ nickname: string; points: number }>`
-    SELECT nickname, points
+    SELECT nickname, wins AS points
     FROM player_scores
-    ORDER BY points DESC, nickname ASC
+    ORDER BY wins DESC, nickname ASC
     LIMIT ${limit}
   `;
   return rows;
