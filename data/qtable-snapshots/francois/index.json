@@ -766,5 +766,101 @@
     "epsilon": 0.5,
     "full": false,
     "qCountStored": 3000
+  },
+  {
+    "episode": 9800000,
+    "timestamp": 1757317926965,
+    "coveragePct": 66.141,
+    "states": 19489,
+    "minVisits": 1,
+    "maxVisits": 11540000,
+    "avgVisits": 13886.18,
+    "epsilon": 0.5,
+    "full": false,
+    "qCountStored": 3000
+  },
+  {
+    "episode": 9850000,
+    "timestamp": 1757318184438,
+    "coveragePct": 66.175,
+    "states": 19499,
+    "minVisits": 1,
+    "maxVisits": 11590000,
+    "avgVisits": 13946.33,
+    "epsilon": 0.499,
+    "full": false,
+    "qCountStored": 3000
+  },
+  {
+    "episode": 9900000,
+    "timestamp": 1757318442847,
+    "coveragePct": 66.324,
+    "states": 19543,
+    "minVisits": 1,
+    "maxVisits": 11640000,
+    "avgVisits": 13988.31,
+    "epsilon": 0.497,
+    "full": false,
+    "qCountStored": 3000
+  },
+  {
+    "episode": 9950000,
+    "timestamp": 1757318691226,
+    "coveragePct": 66.422,
+    "states": 19572,
+    "minVisits": 1,
+    "maxVisits": 11690000,
+    "avgVisits": 14041.93,
+    "epsilon": 0.5,
+    "full": false,
+    "qCountStored": 3000
+  },
+  {
+    "episode": 10000000,
+    "timestamp": 1757318939628,
+    "coveragePct": 66.531,
+    "states": 19604,
+    "minVisits": 1,
+    "maxVisits": 11740000,
+    "avgVisits": 14095.96,
+    "epsilon": 0.4942,
+    "full": false,
+    "qCountStored": 3000
+  },
+  {
+    "episode": 10050000,
+    "timestamp": 1757319203535,
+    "coveragePct": 66.643,
+    "states": 19637,
+    "minVisits": 1,
+    "maxVisits": 11790000,
+    "avgVisits": 14149.87,
+    "epsilon": 0.4927,
+    "full": false,
+    "qCountStored": 3000
+  },
+  {
+    "episode": 10100000,
+    "timestamp": 1757319461809,
+    "coveragePct": 66.704,
+    "states": 19655,
+    "minVisits": 1,
+    "maxVisits": 11840000,
+    "avgVisits": 14213.47,
+    "epsilon": 0.4919,
+    "full": false,
+    "qCountStored": 3000
+  },
+  {
+    "episode": 10140000,
+    "timestamp": 1757319786673,
+    "coveragePct": 66.701,
+    "states": 19654,
+    "minVisits": 1,
+    "maxVisits": 11880000,
+    "avgVisits": 14241.34,
+    "epsilon": 0.5,
+    "full": false,
+    "qCountStored": 3000
   }
 ]

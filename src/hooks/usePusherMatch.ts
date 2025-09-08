@@ -31,29 +31,12 @@ export function usePusherMatch(matchId: string | null) {
   const [state, setState] = useState<MatchState | null>(null);
   const [resolving, setResolving] = useState(false);
   const [reveal, setReveal] = useState<ResolutionEvent | null>(null);
-  const pRef = useRef<Pusher | null>(null);
-  const channelRef = useRef<string | null>(null);
   const joinedRef = useRef(false);
 
   // reset le flag quand on change de match
   useEffect(() => {
     joinedRef.current = false;
   }, [matchId]);
-
-  // auto-join quand on a matchId + playerId
-  useEffect(() => {
-    if (!matchId || !playerId || joinedRef.current) return;
-    joinedRef.current = true;
-    // fire-and-forget
-    fetch("/api/match/join", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ matchId, playerId }),
-    }).catch(() => {
-      // si échec, autorise une nouvelle tentative
-      joinedRef.current = false;
-    });
-  }, [matchId, playerId]);
 
   useEffect(() => {
     if (!matchId) return;
@@ -66,15 +49,13 @@ export function usePusherMatch(matchId: string | null) {
       console.warn("[pusher] init error:", (e as Error).message);
       return;
     }
-    pRef.current = p;
 
     const channelName = matchChannel(matchId);
-    channelRef.current = channelName;
     const ch = p.subscribe(channelName);
 
     // Set player id when connected/subscribed
     const onConnected = () => {
-      if (!cancelled && !playerId && p.connection.socket_id) {
+      if (!cancelled && p.connection.socket_id) {
         setPlayerId(p.connection.socket_id);
       }
     };
@@ -97,43 +78,42 @@ export function usePusherMatch(matchId: string | null) {
     ch.bind("resolution", onResolution);
 
     return () => {
-      cancelled = true;
-      // Unbind handlers first
       ch.unbind("state", onState);
       ch.unbind("resolution", onResolution);
       ch.unbind("pusher:subscription_succeeded", onConnected);
       p.connection.unbind("connected", onConnected);
-
-      // Safe unsubscribe: only if still subscribed and socket connected
-      const name = channelRef.current;
-      if (name) {
-        if (p.connection.state === "connected") {
-          try {
-            p.unsubscribe(name);
-          } catch {
-            // ignore
-          }
-        }
-      }
-      // Do NOT p.disconnect() here to avoid closing socket used by other pages/hooks
+      try {
+        if (p.connection.state === "connected") p.unsubscribe(channelName);
+      } catch {}
     };
-    // exclude playerId to avoid resubscribing just for id update
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchId]);
 
-  const isJoined = !!(state?.players?.includes(playerId));
+  // auto-join dès qu’on a matchId + playerId
+  useEffect(() => {
+    if (!matchId || !playerId || joinedRef.current) return;
+    joinedRef.current = true;
+    fetch("/api/match/join", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ matchId, playerId }),
+    }).catch(() => {
+      joinedRef.current = false;
+    });
+  }, [matchId, playerId]);
 
   const sendAction = useCallback(
     async (action: number, spend = 0) => {
-      if (!matchId || !playerId || !isJoined) return;
+      if (!matchId || !playerId) return;
       await fetch("/api/match/action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ matchId, playerId, action, spend }),
       });
     },
-    [matchId, playerId, isJoined]
+    [matchId, playerId]
   );
 
-  return { playerId, state, resolving, reveal, join: () => {}, sendAction, isJoined };
+  const isJoined = !!(state?.players?.includes?.(playerId));
+
+  return { playerId, state, resolving, reveal, sendAction, isJoined };
 }

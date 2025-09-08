@@ -1,3 +1,3 @@
-export function matchChannel(matchId: string) {
-  return `private-match-${matchId}`;
+export function matchChannel(id: string) {
+  return `private-match-${id}`;
 }

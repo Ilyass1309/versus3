@@ -9,20 +9,14 @@ declare global {
 }
 
 export function getPusher(): Pusher {
-  if (typeof window === "undefined") {
-    throw new Error("getPusher must be used on client");
-  }
+  if (typeof window === "undefined") throw new Error("getPusher on client only");
   if (window.__PUSHER__) return window.__PUSHER__;
 
   const key = process.env.NEXT_PUBLIC_PUSHER_KEY;
   const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER ?? "eu";
-  if (!key) {
-    throw new Error("Missing NEXT_PUBLIC_PUSHER_KEY");
-  }
-  const opts: Options = {
-    cluster,
-    authEndpoint: "/api/pusher/auth",
-  };
+  if (!key) throw new Error("Missing NEXT_PUBLIC_PUSHER_KEY");
+
+  const opts: Options = { cluster, authEndpoint: "/api/pusher/auth" };
   window.__PUSHER__ = new Pusher(key, opts);
   return window.__PUSHER__;
 }

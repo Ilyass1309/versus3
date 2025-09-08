@@ -8,7 +8,7 @@ const {
 } = process.env;
 
 if (!PUSHER_APP_ID || !PUSHER_KEY || !PUSHER_SECRET || !PUSHER_CLUSTER) {
-  console.warn("[pusher] Missing env vars. Set PUSHER_* and NEXT_PUBLIC_PUSHER_* in Vercel.");
+  console.warn("[pusher] Missing env vars. Set PUSHER_* and NEXT_PUBLIC_PUSHER_*.");
 }
 
 export const pusherServer = new Pusher({
