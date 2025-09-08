@@ -15,6 +15,8 @@ export default function MultiplayerPage() {
   const [current, setCurrent] = useState<string | null>(null);
   const { playerId, state, sendAction, reveal, isJoined } = usePusherMatch(current);
   const { user } = usePlayer();
+  const [leaderboard, setLeaderboard] = useState<Array<{ nickname: string; points: number }>>([]);
+  const [loadingBoard, setLoadingBoard] = useState(false);
 
   // Charger la liste initiale
   useEffect(() => {
@@ -90,6 +92,28 @@ export default function MultiplayerPage() {
 
   const openRooms = useMemo(() => rooms.filter(r => r.players < 2), [rooms]);
 
+  useEffect(() => {
+    let mounted = true;
+    async function fetchBoard() {
+      setLoadingBoard(true);
+      try {
+        const res = await fetch("/api/leaderboard");
+        const body = await res.json().catch(() => ({}));
+        if (res.ok && mounted) setLeaderboard(body.leaderboard ?? []);
+      } catch (e) {
+        console.error("[multiplayer] leaderboard fetch failed:", e);
+      } finally {
+        if (mounted) setLoadingBoard(false);
+      }
+    }
+    fetchBoard();
+    const iv = setInterval(fetchBoard, 30_000); // refresh every 30s
+    return () => {
+      mounted = false;
+      clearInterval(iv);
+    };
+  }, []);
+
   return (
     <div className="max-w-3xl mx-auto p-6">
       <div className="flex items-center justify-between mb-4">
@@ -130,6 +154,32 @@ export default function MultiplayerPage() {
           ))
         )}
       </div>
+
+      <div className="mt-6">
+        <button
+          onClick={() => router.push("/game")}
+          className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300"
+        >
+          Retour au jeu
+        </button>
+      </div>
+
+      <section className="mt-6 max-w-md">
+        <h3 className="text-lg font-semibold">Classement Multijoueur</h3>
+        {loadingBoard ? (
+          <div>Chargement...</div>
+        ) : (
+          <ol className="mt-2 space-y-1">
+            {leaderboard.length === 0 && <div className="text-sm text-muted">Aucun score</div>}
+            {leaderboard.map((p, i) => (
+              <li key={p.nickname} className="flex justify-between">
+                <span>{i + 1}. {p.nickname}</span>
+                <span className="font-mono">{p.points}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
     </div>
   );
 }

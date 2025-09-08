@@ -96,40 +96,58 @@ export async function logEpisode(params: {
   `;
 }
 
-/** Player scores */
-export async function ensurePlayerScoresTable() {
+/* points / leaderboard helpers */
+export async function ensurePlayerPointsTable() {
   await sql`
     CREATE TABLE IF NOT EXISTS player_scores (
       nickname TEXT PRIMARY KEY,
-      wins INT NOT NULL DEFAULT 0,
+      points INT NOT NULL DEFAULT 0,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
 }
 
-export async function incrementPlayerWin(nickname: string) {
+export async function addPointsToNickname(nickname: string, delta: number) {
   if (!nickname) return;
-  await ensurePlayerScoresTable();
+  await ensurePlayerPointsTable();
   await sql`
-    INSERT INTO player_scores (nickname, wins)
-    VALUES (${nickname}, 1)
+    INSERT INTO player_scores (nickname, points)
+    VALUES (${nickname}, ${delta})
     ON CONFLICT (nickname)
     DO UPDATE SET
-      wins = player_scores.wins + 1,
+      points = player_scores.points + ${delta},
       updated_at = NOW()
   `;
 }
 
-export async function getTopPlayers(limit = 10): Promise<Array<{ nickname: string; wins: number }>> {
-  await ensurePlayerScoresTable();
-  const rows = await sql<{ nickname: string; wins: number }>`
-    SELECT nickname, wins
+export async function addPointsToUserId(userId: number, delta: number) {
+  if (!userId) return;
+  const rows = await sql<{ nickname: string }>`
+    SELECT nickname FROM users WHERE id = ${userId}
+  `;
+  const row = rows[0];
+  if (!row) return;
+  await addPointsToNickname(row.nickname, delta);
+}
+
+export async function getLeaderboard(limit = 10): Promise<Array<{ nickname: string; points: number }>> {
+  await ensurePlayerPointsTable();
+  const rows = await sql<{ nickname: string; points: number }>`
+    SELECT nickname, points
     FROM player_scores
-    ORDER BY wins DESC, nickname ASC
+    ORDER BY points DESC, nickname ASC
     LIMIT ${limit}
   `;
   return rows;
 }
+
+// Alias pour compatibilité (getTopPlayers)
+export async function getTopPlayers(limit = 10) {
+  return getLeaderboard(limit);
+}
+
+// compatibility alias
+export const ensurePlayerScoresTable = ensurePlayerPointsTable;
 
 // --- AUTH TABLES & HELPERS ---
 
