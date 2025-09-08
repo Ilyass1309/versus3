@@ -78,6 +78,7 @@ export function usePusherMatch(matchId: string | null) {
     ch.bind("resolution", onResolution);
 
     return () => {
+      cancelled = true;
       ch.unbind("state", onState);
       ch.unbind("resolution", onResolution);
       ch.unbind("pusher:subscription_succeeded", onConnected);

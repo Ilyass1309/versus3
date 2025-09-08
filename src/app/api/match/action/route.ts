@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { pusherServer } from "@/lib/pusher-server";
 import { matchChannel } from "@/lib/pusher-channel";
 import { stepWithPower } from "@/lib/rl/env";
-import { getMatch, setMatch, acquireMatchLock, Match } from "@/lib/match-store";
+import { getMatch, setMatch, acquireMatchLock } from "@/lib/match-store";
 export const runtime = "nodejs";
 export const preferredRegion = ["fra1"];
 
