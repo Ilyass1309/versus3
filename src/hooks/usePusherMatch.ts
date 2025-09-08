@@ -86,8 +86,6 @@ export function usePusherMatch(matchId: string | null) {
       // Safe unsubscribe: only if still subscribed and socket connected
       const name = channelRef.current;
       if (name) {
-        const existing = (p as any).channel(name) as { unbind_all?: () => void } | undefined;
-        if (existing?.unbind_all) existing.unbind_all();
         if (p.connection.state === "connected") {
           try {
             p.unsubscribe(name);
