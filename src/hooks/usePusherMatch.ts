@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, useCallback } from "react";
-import Pusher, { Options } from "pusher-js";
+import Pusher from "pusher-js";
 import { matchChannel } from "@/lib/pusher-channel";
 
 interface ResolutionEvent {
@@ -25,16 +25,6 @@ interface StateEvent {
 // Alias pour cohérence interne
 type MatchState = StateEvent;
 
-function getPusherOptions(): Options {
-  const key = process.env.NEXT_PUBLIC_PUSHER_KEY;
-  if (!key) throw new Error("Missing NEXT_PUBLIC_PUSHER_KEY");
-  const cluster = (process.env.NEXT_PUBLIC_PUSHER_CLUSTER || "eu") as string;
-  return {
-    cluster,
-    authEndpoint: "/api/pusher/auth",
-  };
-}
-
 export function usePusherMatch(matchId: string | null) {
   const [playerId, setPlayerId] = useState<string>("");
   const [state, setState] = useState<MatchState | null>(null);
@@ -44,45 +34,33 @@ export function usePusherMatch(matchId: string | null) {
 
   useEffect(() => {
     if (!matchId) return;
-    let cancelled = false;
 
-    let pusher: Pusher;
-    try {
-      const opts = getPusherOptions();
-      pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY as string, opts);
-    } catch (e) {
-      console.error("[pusher] init error:", (e as Error).message);
-      return;
+    const key = process.env.NEXT_PUBLIC_PUSHER_KEY;
+    const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER ?? "eu";
+    if (!key) {
+      console.warn("[pusher] missing NEXT_PUBLIC_PUSHER_KEY");
+      return; // évite les boucles d’erreurs
     }
+
+    const pusher = new Pusher(key, { cluster, authEndpoint: "/api/pusher/auth" });
     pRef.current = pusher;
+
     const channelName = matchChannel(matchId);
     const ch = pusher.subscribe(channelName);
 
     ch.bind("pusher:subscription_succeeded", () => {
-      if (!cancelled && !playerId) setPlayerId(pusher.connection.socket_id);
+      if (!playerId) setPlayerId(pusher.connection.socket_id);
     });
-
-    ch.bind("state", (s: StateEvent) => {
-      if (cancelled) return;
-      setState(s);
-      setResolving(false);
-    });
-
+    ch.bind("state", (s: StateEvent) => { setState(s); setResolving(false); });
     ch.bind("resolution", (r: ResolutionEvent) => {
-      if (cancelled) return;
-      setReveal(r);
-      setResolving(true);
-      if (r.done) setTimeout(() => !cancelled && setResolving(false), 800);
+      setReveal(r); setResolving(true); if (r.done) setTimeout(() => setResolving(false), 800);
     });
 
     return () => {
-      cancelled = true;
       pusher.unsubscribe(channelName);
       pusher.disconnect();
     };
-    // playerId intentionally excluded so we don't reconnect when it updates
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matchId]);
+  }, [matchId, playerId]);
 
   const join = useCallback(async () => {
     if (!matchId || !playerId) return;
@@ -93,17 +71,14 @@ export function usePusherMatch(matchId: string | null) {
     });
   }, [matchId, playerId]);
 
-  const sendAction = useCallback(
-    async (action: number, spend = 0) => {
-      if (!matchId || !playerId) return;
-      await fetch("/api/match/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ matchId, playerId, action, spend }),
-      });
-    },
-    [matchId, playerId]
-  );
+  const sendAction = useCallback(async (action: number, spend = 0) => {
+    if (!matchId || !playerId) return;
+    await fetch("/api/match/action", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ matchId, playerId, action, spend }),
+    });
+  }, [matchId, playerId]);
 
   return { playerId, state, resolving, reveal, join, sendAction };
 }
