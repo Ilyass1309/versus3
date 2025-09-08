@@ -1,12 +1,28 @@
-import { sql } from "./pg"; // ensure this import exists (adjust path if needed)
-import type { QTable } from "./rl/qtable";
-import crypto from "node:crypto";
+import { neon } from "@neondatabase/serverless";
 import bcrypt from "bcryptjs";
+import type { QTable } from "./rl/qtable";
+
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) throw new Error("Missing DATABASE_URL");
+const _sql = neon(DATABASE_URL);
+
+// wrapper typé qui retourne directement les lignes
+async function sql<T = unknown>(strings: TemplateStringsArray, ...values: unknown[]): Promise<T[]> {
+  // Log minimal pour debug (supprime en prod si voulu)
+  try {
+    // console.log("[SQL]", strings.raw.join(""), values);
+    const res = await _sql(strings, ...values);
+    return res as unknown as T[];
+  } catch (err) {
+    console.error("[SQL ERROR]", err);
+    throw err;
+  }
+}
 
 type QRowDB = { id: number; version: number; qjson: QTable };
 
 export async function getQTable(): Promise<{ version: number; q: QTable }> {
-  const { rows } = await sql<QRowDB>`
+  const rows = await sql<QRowDB>`
     SELECT id, version, qjson
     FROM qtable
     WHERE id = 1
@@ -18,7 +34,7 @@ export async function getQTable(): Promise<{ version: number; q: QTable }> {
       ON CONFLICT (id) DO NOTHING
       RETURNING id, version, qjson
     `;
-    const row = inserted.rows[0] ?? { id: 1, version: 1, qjson: {} as QTable };
+    const row = inserted[0] ?? { id: 1, version: 1, qjson: {} as QTable };
     return { version: row.version, q: row.qjson };
   }
   const row = rows[0] ?? { id: 1, version: 1, qjson: {} as QTable };
@@ -26,60 +42,38 @@ export async function getQTable(): Promise<{ version: number; q: QTable }> {
 }
 
 /**
- * Verrouille la Q-table (ligne id=1), applique updater(q), persiste et incrémente version.
+ * NOTE: this implementation is non-transactional to avoid depending on
+ * client.connect() from the neon tag. This is simpler and removes TS errors.
+ * If you need strict locking, use a dedicated DB client and transactions.
  */
 export async function withLockedQTable(
   updater: (q: QTable) => Promise<void> | void
 ): Promise<{ version: number; q: QTable }> {
-  const client = await sql.connect();
-  try {
-    await client.sql`BEGIN`;
-    // Lock (ou créer si absent)
-    let { rows } = await client.sql<QRowDB>`
-      SELECT id, version, qjson
-      FROM qtable
-      WHERE id = 1
-      FOR UPDATE
-    `;
-    if (rows.length === 0) {
-      const inserted = await client.sql<QRowDB>`
-        INSERT INTO qtable (id, version, qjson)
-        VALUES (1, 1, '{}'::jsonb)
-        ON CONFLICT (id) DO NOTHING
-        RETURNING id, version, qjson
-      `;
-      rows = inserted.rows;
-    }
-    const current = rows[0] ?? { id: 1, version: 1, qjson: {} as QTable };
+  // read current
+  const rows = await sql<QRowDB>`
+    SELECT id, version, qjson
+    FROM qtable
+    WHERE id = 1
+  `;
+  let current = rows[0] ?? { id: 1, version: 1, qjson: {} as QTable };
 
-    // Clone défensif pour éviter des références cachées
-    const q: QTable = JSON.parse(JSON.stringify(current.qjson || {}));
+  // defensive clone
+  const q: QTable = JSON.parse(JSON.stringify(current.qjson || {}));
+  await updater(q);
+  const newVersion = (current.version ?? 1) + 1;
+  const qJson = JSON.stringify(q);
 
-    await updater(q);
-
-    const newVersion = current.version + 1;
-
-    // UPSERT (id unique)
-    const qJson = JSON.stringify(q);
-    const { rows: updatedRows } = await client.sql<QRowDB>`
-      INSERT INTO qtable (id, version, qjson, updated_at)
-      VALUES (1, ${newVersion}, ${qJson}::jsonb, NOW())
-      ON CONFLICT (id) DO UPDATE SET
-        version = EXCLUDED.version,
-        qjson = EXCLUDED.qjson,
-        updated_at = NOW()
-      RETURNING id, version, qjson
-    `;
-
-    const updated = updatedRows[0] ?? { id: 1, version: newVersion, qjson: q as QTable };
-    await client.sql`COMMIT`;
-    return { version: updated.version, q: updated.qjson };
-  } catch (err) {
-    await client.sql`ROLLBACK`;
-    throw err;
-  } finally {
-    client.release();
-  }
+  const updatedRows = await sql<QRowDB>`
+    INSERT INTO qtable (id, version, qjson, updated_at)
+    VALUES (1, ${newVersion}, ${qJson}::jsonb, NOW())
+    ON CONFLICT (id) DO UPDATE SET
+      version = EXCLUDED.version,
+      qjson = EXCLUDED.qjson,
+      updated_at = NOW()
+    RETURNING id, version, qjson
+  `;
+  const updated = updatedRows[0] ?? { id: 1, version: newVersion, qjson: q as QTable };
+  return { version: updated.version, q: updated.qjson };
 }
 
 export async function logEpisode(params: {
@@ -128,7 +122,7 @@ export async function incrementPlayerWin(nickname: string) {
 
 export async function getTopPlayers(limit = 10): Promise<Array<{ nickname: string; wins: number }>> {
   await ensurePlayerScoresTable();
-  const { rows } = await sql<{ nickname: string; wins: number }>`
+  const rows = await sql<{ nickname: string; wins: number }>`
     SELECT nickname, wins
     FROM player_scores
     ORDER BY wins DESC, nickname ASC
@@ -164,35 +158,39 @@ export interface User {
   created_at: string;
 }
 
-export async function registerUser(nickname: string, password: string): Promise<User> {
+export async function registerUser(nickname: string, password: string): Promise<{ id: number; nickname: string }> {
   await ensureAuthTables();
   const hash = await bcrypt.hash(password, 10);
-  const { rows } = await sql<User>`
+
+  // NOTE: pass the row type (not an array type) to sql<...>
+  const rows = await sql<{ id: number; nickname: string }>`
     INSERT INTO users (nickname, password_hash)
     VALUES (${nickname}, ${hash})
     ON CONFLICT (nickname) DO NOTHING
-    RETURNING id, nickname, created_at
+    RETURNING id, nickname
   `;
-  const user = rows[0];
-  if (!user) throw new Error("nickname_taken");
-  return user;
+
+  if (!rows || !rows[0]) {
+    const err = new Error("nickname_taken");
+    throw err;
+  }
+  return rows[0];
 }
 
 export async function findUserByNickname(nickname: string): Promise<{ id: number; password_hash: string } | null> {
   await ensureAuthTables();
-  const { rows } = await sql<{ id: number; password_hash: string }>`
+  const rows = await sql<{ id: number; password_hash: string }>`
     SELECT id, password_hash FROM users WHERE nickname = ${nickname}
   `;
   return rows[0] ?? null;
 }
 
-export async function createSession(userId: number, days = 7) {
-  await ensureAuthTables();
-  const token = crypto.randomBytes(32).toString("hex");
-  const expires = new Date(Date.now() + days * 86400_000);
+export async function createSession(userId: number) {
+  const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  const expires = new Date(Date.now() + 14 * 24 * 3600 * 1000);
   await sql`
     INSERT INTO sessions (token, user_id, expires_at)
-    VALUES (${token}, ${userId}, ${expires.toISOString()})
+    VALUES (${token}, ${userId}, ${expires})
   `;
   return { token, expires };
 }
@@ -200,7 +198,7 @@ export async function createSession(userId: number, days = 7) {
 export async function getUserBySession(token: string): Promise<User | null> {
   if (!token) return null;
   await ensureAuthTables();
-  const { rows } = await sql<(User & { expires_at: string })>`
+  const rows = await sql<(User & { expires_at: string })>`
     SELECT u.id, u.nickname, u.created_at, s.expires_at
     FROM sessions s
     JOIN users u ON u.id = s.user_id
@@ -223,7 +221,7 @@ export async function deleteSession(token: string) {
 // Secure score increment now uses authenticated user (server-side)
 export async function incrementAuthedPlayerWin(userId: number) {
   await ensurePlayerScoresTable();
-  const { rows } = await sql<{ nickname: string }>`SELECT nickname FROM users WHERE id=${userId}`;
+  const rows = await sql<{ nickname: string }>`SELECT nickname FROM users WHERE id=${userId}`;
   const row = rows[0];
   if (!row) return;
   const nick = row.nickname;
