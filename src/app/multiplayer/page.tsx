@@ -1,108 +1,125 @@
 "use client";
-import { useState } from "react";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { getPusher } from "@/lib/pusher-client";
+import { lobbyChannel } from "@/lib/pusher-channel";
 import { usePusherMatch } from "@/hooks/usePusherMatch";
-import Link from "next/link";
+
+type Room = { id: string; players: number; createdAt: number };
 
 export default function MultiplayerPage() {
-  const [matchId, setMatchId] = useState<string>("");
+  const router = useRouter();
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [current, setCurrent] = useState<string | null>(null);
   const { playerId, state, sendAction, reveal, isJoined } = usePusherMatch(current);
 
-  async function create() {
-    const r = await fetch("/api/match/create", { method: "POST" });
-    if (!r.ok) {
-      console.error("Create failed", r.status);
+  // Charger la liste initiale
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch("/api/match/list", { cache: "no-store" });
+        const j = await r.json();
+        setRooms(j.rooms ?? []);
+      } catch {}
+    })();
+  }, []);
+
+  // S'abonner au lobby (public)
+  useEffect(() => {
+    let p;
+    try {
+      p = getPusher();
+    } catch {
       return;
     }
+    const ch = p.subscribe(lobbyChannel);
+
+    const onCreated = (r: Room) => {
+      setRooms(prev => {
+        if (prev.find(x => x.id === r.id)) return prev;
+        return [r, ...prev].sort((a, b) => b.createdAt - a.createdAt);
+      });
+    };
+    const onUpdated = (r: { id: string; players: number }) => {
+      setRooms(prev => prev.map(x => (x.id === r.id ? { ...x, players: r.players } : x)));
+    };
+    const onFull = (r: { id: string }) => {
+      setRooms(prev => prev.filter(x => x.id !== r.id));
+    };
+
+    ch.bind("created", onCreated);
+    ch.bind("updated", onUpdated);
+    ch.bind("full", onFull);
+
+    return () => {
+      ch.unbind("created", onCreated);
+      ch.unbind("updated", onUpdated);
+      ch.unbind("full", onFull);
+      try { p.unsubscribe(lobbyChannel); } catch {}
+    };
+  }, []);
+
+  // Créer un salon
+  async function create() {
+    const r = await fetch("/api/match/create", { method: "POST" });
+    if (!r.ok) return;
     const j = await r.json();
-    setMatchId(j.matchId);
     setCurrent(j.matchId);
-    // Auto-join via hook
   }
 
-  async function joinExisting() {
-    if (!matchId) return;
-    setCurrent(matchId);
-    // Auto-join via hook
+  // Rejoindre un salon
+  function joinRoom(id: string) {
+    setCurrent(id);
   }
+
+  // Quand les 2 joueurs sont présents dans le salon courant, naviguer vers la page de match
+  useEffect(() => {
+    if (!current) return;
+    const count = state?.players?.length ?? 0;
+    if (isJoined && count === 2) {
+      router.push(`/multiplayer/${current}`);
+    }
+  }, [current, isJoined, state?.players?.length, router]);
+
+  const openRooms = useMemo(() => rooms.filter(r => r.players < 2), [rooms]);
 
   return (
-    <div className="min-h-dvh px-6 py-8 text-slate-100">
-      <div className="max-w-3xl mx-auto space-y-8">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="text-xs px-3 py-1.5 rounded bg-white/10 hover:bg-white/20">Home</Link>
-          <h1 className="text-2xl font-bold">Multiplayer (Pusher Sandbox)</h1>
-        </div>
+    <div className="max-w-3xl mx-auto p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-semibold">Salons multijoueur</h1>
+        <button
+          onClick={create}
+          className="px-3 py-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
+        >
+          Créer un salon
+        </button>
+      </div>
 
-        <div className="glass p-4 space-y-4">
-          <div className="flex gap-2">
-            <button onClick={create} className="px-3 py-1.5 rounded bg-indigo-600/80 hover:bg-indigo-500 text-xs font-semibold">
-              Create Match
-            </button>
-            <input
-              value={matchId}
-              onChange={e=>setMatchId(e.target.value)}
-              placeholder="Match ID"
-              className="bg-white/10 text-xs px-2 py-1 rounded"
-            />
-            <button onClick={joinExisting} className="px-3 py-1.5 rounded bg-fuchsia-600/80 hover:bg-fuchsia-500 text-xs font-semibold">
-              Join
-            </button>
-          </div>
-          <p className="text-[11px] text-slate-400">
-            Player ID: {playerId || "…"} • Current Match: {current || "-"}
-          </p>
+      <div className="rounded border border-zinc-800 overflow-hidden">
+        <div className="grid grid-cols-3 bg-zinc-900/60 px-4 py-2 text-xs uppercase tracking-wide text-zinc-400">
+          <div>Match ID</div>
+          <div>Joueurs</div>
+          <div>Action</div>
         </div>
-
-        {state && (
-          <div className="glass p-5 space-y-4">
-            <h2 className="text-sm font-semibold">Match #{state.id}</h2>
-            <p className="text-xs text-slate-400">
-              Phase: {state.phase} • Turn: {state.turn}
-            </p>
-            <div className="grid grid-cols-2 gap-4 text-xs">
-              <div className="p-3 rounded bg-indigo-500/10">
-                <h3 className="font-semibold mb-1">Side P</h3>
-                <p>HP: {state.hp?.p}</p>
-                <p>Charge: {state.charge?.p}</p>
-              </div>
-              <div className="p-3 rounded bg-fuchsia-500/10">
-                <h3 className="font-semibold mb-1">Side E</h3>
-                <p>HP: {state.hp?.e}</p>
-                <p>Charge: {state.charge?.e}</p>
+        {openRooms.length === 0 ? (
+          <div className="px-4 py-6 text-sm text-zinc-500">Aucun salon disponible</div>
+        ) : (
+          openRooms.map(r => (
+            <div key={r.id} className="grid grid-cols-3 items-center px-4 py-3 border-t border-zinc-800">
+              <div className="font-mono text-sm">{r.id}</div>
+              <div className="text-sm">{r.players} / 2</div>
+              <div>
+                <button
+                  onClick={() => joinRoom(r.id)}
+                  className="px-2 py-1 rounded bg-sky-600 hover:bg-sky-700 text-white text-xs"
+                  disabled={r.players >= 2}
+                >
+                  Rejoindre
+                </button>
               </div>
             </div>
-
-            {reveal && (
-              <div className="text-[11px] bg-white/5 rounded p-3">
-                <p className="font-semibold mb-1">Reveal Turn {reveal.turn}</p>
-                <pre className="whitespace-pre-wrap text-[10px]">
-{JSON.stringify(reveal.reveal, null, 2)}
-                </pre>
-              </div>
-            )}
-
-            <div className="flex gap-2">
-              <button
-                disabled={state?.phase !== "collect" || !isJoined}
-                onClick={()=>sendAction(0)}
-                className="flex-1 px-3 py-2 rounded bg-rose-600/80 hover:bg-rose-600 text-xs font-medium disabled:opacity-40"
-              >Attack</button>
-              <button
-                disabled={state?.phase !== "collect" || !isJoined}
-                onClick={()=>sendAction(1)}
-                className="flex-1 px-3 py-2 rounded bg-sky-600/80 hover:bg-sky-600 text-xs font-medium disabled:opacity-40"
-              >Defend</button>
-              <button
-                disabled={state?.phase !== "collect" || !isJoined}
-                onClick={()=>sendAction(2)}
-                className="flex-1 px-3 py-2 rounded bg-amber-500/80 hover:bg-amber-500 text-xs font-medium disabled:opacity-40"
-              >Charge</button>
-            </div>
-            <p className="text-[10px] text-slate-500">
-              Sandbox: in-memory match state (will reset on cold start).
-            </p>
-          </div>
+          ))
         )}
       </div>
     </div>

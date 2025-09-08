@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { pusherServer } from "@/lib/pusher-server";
-import { matchChannel } from "@/lib/pusher-channel";
 import { initialState } from "@/lib/rl/env";
 import { createNewMatch } from "@/lib/match-store";
+import { lobbyChannel, matchChannel } from "@/lib/pusher-channel";
 export const runtime = "nodejs";
 export const preferredRegion = ["fra1"];
 
@@ -15,13 +15,16 @@ export async function POST() {
     } catch {
       st = { pHP: 20, eHP: 20, pCharge: 0, eCharge: 0, turn: 1 };
     }
-    await createNewMatch(id, st);
+
+    const m = await createNewMatch(id, st);
+
     try {
+      await pusherServer.trigger(lobbyChannel, "created", { id: m.id, players: 0, createdAt: m.createdAt });
       await pusherServer.trigger(matchChannel(id), "meta", { status: "created" });
     } catch {}
     return NextResponse.json({ matchId: id });
   } catch (e) {
-    console.error("[match/create]", (e as Error).message);
+    console.error("[match/create] error:", (e as Error).message);
     return NextResponse.json({ error: "match_creation_failed" }, { status: 500 });
   }
 }

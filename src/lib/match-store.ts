@@ -23,6 +23,7 @@ export interface Match {
 }
 
 const MATCH_TTL_SECONDS = 60 * 60 * 4; // 4h
+const INDEX_KEY = "match:index";
 
 function matchKey(id: string) {
   return `match:${id}`;
@@ -56,7 +57,17 @@ export async function createNewMatch(id: string, initial: RLState): Promise<Matc
     phase: "collect",
   };
   await setMatch(m);
+  // index pour la liste des salons (score = createdAt)
+  await redis.zadd(INDEX_KEY, m.createdAt, m.id);
   return m;
+}
+
+export async function removeFromIndex(id: string): Promise<void> {
+  await redis.zrem(INDEX_KEY, id);
+}
+
+export async function addToIndex(id: string, createdAt: number): Promise<void> {
+  await redis.zadd(INDEX_KEY, createdAt, id);
 }
 
 export type ReleaseFn = () => Promise<void>;
@@ -68,8 +79,6 @@ export async function acquireMatchLock(
 ): Promise<ReleaseFn | null> {
   const key = lockKey(matchId);
   const token = Math.random().toString(36).slice(2);
-
-  // ioredis: SET key value "EX" seconds "NX" → "OK" | null
   const secs = Math.max(1, Math.floor(ttlSec));
   const res = (await redis.set(key, token, "EX", secs, "NX")) as "OK" | null;
   if (res !== "OK") return null;
@@ -82,4 +91,50 @@ export async function acquireMatchLock(
       // noop
     }
   };
+}
+
+// Liste des salons ouverts (non complets)
+export async function listOpenMatches(limit = 50): Promise<Array<{ id: string; players: number; createdAt: number }>> {
+  const ids = await redis.zrevrange(INDEX_KEY, 0, Math.max(0, limit - 1));
+  if (ids.length === 0) return [];
+
+  // pipeline mget
+  const pipeline = redis.pipeline();
+  for (const id of ids) pipeline.get(matchKey(id));
+
+  const out: Array<{ id: string; players: number; createdAt: number }> = [];
+  const toCleanup: string[] = [];
+
+  const execRes = await pipeline.exec();
+  if (!execRes) {
+    return out;
+  }
+
+  ids.forEach((id, i) => {
+    const [err, raw] = execRes[i] as [Error | null, string | null];
+    if (err || !raw) {
+      toCleanup.push(id);
+      return;
+    }
+    try {
+      const m = JSON.parse(raw) as Match;
+      const playersCount = m.players?.length ?? 0;
+      const ended = m.phase === "ended";
+      if (playersCount < 2 && !ended) {
+        out.push({ id: m.id, players: playersCount, createdAt: m.createdAt });
+      } else {
+        toCleanup.push(id);
+      }
+    } catch {
+      toCleanup.push(id);
+    }
+  });
+
+  if (toCleanup.length) {
+    try {
+      await redis.zrem(INDEX_KEY, ...toCleanup);
+    } catch {}
+  }
+
+  return out;
 }
