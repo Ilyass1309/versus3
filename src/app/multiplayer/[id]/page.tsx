@@ -49,6 +49,7 @@ export default function MatchRoomPage() {
   const { playerId, state, resolving, reveal, sendAction, isJoined, mySide } = usePusherMatch(id);
 
   const [selected, setSelected] = useState<number | null>(null);
+  const [spend, setSpend] = useState<number>(0);
   const disabled = !isJoined || state?.phase !== "collect";
 
   // Journal de bord
@@ -84,30 +85,51 @@ export default function MatchRoomPage() {
     setLog(prev => [header, ...entries, hpLine, ...(result ? [result] : []), ...prev].slice(0, 200));
   }, [reveal, playerId]);
 
-  // Réinitialiser la sélection après chaque retour en phase "collect"
+  // Réinitialiser la sélection et le spend après retour en phase "collect"
   const phase = state?.phase;
   const turn = state?.turn;
   useEffect(() => {
     if (phase === "collect") {
       setSelected(null);
+      setSpend(0);
     }
   }, [phase, turn]);
 
+  // Mes HP et Charge vs l’adversaire
   const hpYou = mySide === "e" ? state?.hp.e ?? 0 : mySide === "p" ? state?.hp.p ?? 0 : 0;
   const hpEnemy = mySide === "e" ? state?.hp.p ?? 0 : mySide === "p" ? state?.hp.e ?? 0 : 0;
   const chYou = mySide === "e" ? state?.charge.e ?? 0 : mySide === "p" ? state?.charge.p ?? 0 : 0;
   const chEnemy = mySide === "e" ? state?.charge.p ?? 0 : mySide === "p" ? state?.charge.e ?? 0 : 0;
 
+  const maxSpend = Math.min(3, Math.max(0, chYou));
+
   const ringIf = (a: number) =>
     selected === a ? "ring-2 ring-offset-2 ring-offset-slate-900 ring-amber-400" : "";
+
+  async function confirmAttack() {
+    if (disabled || selected !== 0) return;
+    await sendAction(0, Math.min(maxSpend, Math.max(0, spend)));
+  }
 
   async function onSelectAction(a: number) {
     if (disabled) return;
     setSelected(a);
-    await sendAction(a); // spend par défaut calculé dans le hook
+    if (a === 0) {
+      // Par défaut, propose 1 si possible, sinon 0
+      setSpend(maxSpend > 0 ? Math.min(1, maxSpend) : 0);
+      // On attend la confirmation de l’utilisateur (ne pas envoyer tout de suite)
+      return;
+    }
+    // Défendre / Charger -> envoi direct
+    await sendAction(a);
   }
 
-  const selectedLabel = useMemo(() => actionLabel(selected), [selected]);
+  const selectedLabel = useMemo(() => {
+    if (selected === 0) {
+      return spend > 0 ? (`${actionLabel(0)} (${spend})` as const) : actionLabel(0);
+    }
+    return actionLabel(selected);
+  }, [selected, spend]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100">
@@ -171,6 +193,51 @@ export default function MatchRoomPage() {
               Charger
             </button>
           </div>
+
+          {/* Sélection du nombre de charges pour l’attaque */}
+          {selected === 0 && (
+            <div className="mt-5 rounded-lg border border-slate-800 bg-slate-900/70 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm text-slate-300">Charges à utiliser</div>
+                <div className="text-xs text-slate-400">Dispo: {chYou} · Max: 3</div>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <input
+                  type="range"
+                  min={0}
+                  max={maxSpend}
+                  step={1}
+                  value={Math.min(spend, maxSpend)}
+                  onChange={(e) => setSpend(Number(e.target.value))}
+                  className="flex-1 accent-amber-400"
+                />
+                <div className="w-10 text-right tabular-nums text-sm text-slate-200">{Math.min(spend, maxSpend)}</div>
+              </div>
+
+              <div className="mt-3 flex items-center gap-2">
+                {[0, 1, 2, 3].filter(n => n <= maxSpend).map(n => (
+                  <button
+                    key={n}
+                    onClick={() => setSpend(n)}
+                    className={`px-2 py-1 rounded border text-xs ${
+                      spend === n ? "border-amber-400 text-amber-300" : "border-slate-700 text-slate-300"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+                <div className="flex-1" />
+                <button
+                  disabled={disabled}
+                  onClick={confirmAttack}
+                  className="px-3 py-2 rounded bg-amber-600 hover:bg-amber-500 text-sm disabled:opacity-40"
+                >
+                  Valider l’attaque
+                </button>
+              </div>
+            </div>
+          )}
 
           {resolving && (
             <div className="mt-4 text-xs text-slate-400">Résolution en cours…</div>

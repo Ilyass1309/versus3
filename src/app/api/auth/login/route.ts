@@ -1,8 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { signToken } from "@/lib/auth/jwt";
 import { findUserByNickname, createSession } from "@/lib/db";
 import bcrypt from "bcryptjs";
 
 export const runtime = "nodejs";
+export const preferredRegion = ["fra1"];
+
+function newId() {
+  return Math.random().toString(36).slice(2, 10);
+}
 
 function setSessionCookie(res: NextResponse, token: string, expires: Date) {
   res.cookies.set("session", token, {
@@ -14,7 +20,7 @@ function setSessionCookie(res: NextResponse, token: string, expires: Date) {
   });
 }
 
-export async function POST(req: Request) {
+export async function POST(req: Request | NextRequest) {
   try {
     const { nickname, password } = await req.json().catch(() => ({}));
     if (typeof nickname !== "string" || typeof password !== "string") {

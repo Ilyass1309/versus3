@@ -33,8 +33,15 @@ export function GameHeader({ rulesOpen, onRulesOpenChange }: GameHeaderProps) {
         setMenuOpen(false);
       }
     }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
     if (menuOpen) document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    if (menuOpen) document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [menuOpen]);
 
   async function logout() {
@@ -99,38 +106,48 @@ export function GameHeader({ rulesOpen, onRulesOpenChange }: GameHeaderProps) {
               </button>
             )}
           />
-          {nickname && (
-            <div className="relative" ref={menuRef}>
-              <button
-                onClick={toggleMenu}
-                className="text-xs font-medium px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 transition focus:outline-none focus-visible:ring ring-indigo-400/60"
-                aria-haspopup="true"
-                aria-expanded={menuOpen}
-              >
+          {nickname ? (
+             <div className="relative" ref={menuRef}>
+               <button
+                 onClick={toggleMenu}
+                 className="text-xs font-medium px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 transition focus:outline-none focus-visible:ring ring-indigo-400/60"
+                 aria-haspopup="true"
+                 aria-expanded={menuOpen}
+               >
                 {nickname}
-              </button>
-              {menuOpen && (
-                <div
-                  className="absolute right-0 mt-2 w-40 rounded-lg border border-white/10 bg-slate-900/90 backdrop-blur px-2 py-2 shadow-lg z-50"
-                  role="menu"
-                >
-                  <button
-                    onClick={logout}
-                    className="w-full text-left text-[11px] px-3 py-2 rounded-md bg-white/5 hover:bg-rose-500/20 hover:text-rose-200 transition"
-                    role="menuitem"
-                  >
-                    Log out
-                  </button>
-                  <button
-                    onClick={closeMenu}
-                    className="w-full mt-1 text-left text-[11px] px-3 py-2 rounded-md bg-white/5 hover:bg-white/10 transition"
-                    role="menuitem"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              )}
-            </div>
+               </button>
+               {menuOpen && (
+                 <div
+                   className="absolute right-0 mt-2 w-40 rounded-lg border border-white/10 bg-slate-900/90 backdrop-blur px-2 py-2 shadow-lg z-50"
+                   role="menu"
+                 >
+                  <div className="px-3 py-2 text-[11px] text-slate-300/90 border-b border-white/10 mb-1">
+                    Profil: <span className="font-medium">{nickname}</span>
+                  </div>
+                   <button
+                     onClick={logout}
+                     className="w-full text-left text-[11px] px-3 py-2 rounded-md bg-white/5 hover:bg-rose-500/20 hover:text-rose-200 transition"
+                     role="menuitem"
+                   >
+                    Déconnexion
+                   </button>
+                   <button
+                     onClick={closeMenu}
+                     className="w-full mt-1 text-left text-[11px] px-3 py-2 rounded-md bg-white/5 hover:bg-white/10 transition"
+                     role="menuitem"
+                   >
+                     Cancel
+                   </button>
+                 </div>
+               )}
+             </div>
+          ) : (
+            <Link
+              href="/nickname"
+              className="text-xs font-medium px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 transition focus:outline-none focus-visible:ring ring-indigo-400/60"
+            >
+              Se connecter
+            </Link>
           )}
         </div>
       </div>

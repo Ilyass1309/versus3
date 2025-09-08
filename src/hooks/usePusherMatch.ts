@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import type Pusher from "pusher-js";
 import { matchChannel } from "@/lib/pusher-channel";
 import { getPusher } from "@/lib/pusher-client";
+import { usePlayer } from "@/app/providers/PlayerProvider";
 
 interface ResolutionEvent {
   turn: number;
@@ -27,6 +28,7 @@ interface StateEvent {
 type MatchState = StateEvent;
 
 export function usePusherMatch(matchId: string | null) {
+  const { user } = usePlayer();
   const [playerId, setPlayerId] = useState<string>("");
   const [state, setState] = useState<MatchState | null>(null);
   const [resolving, setResolving] = useState(false);
@@ -89,14 +91,16 @@ export function usePusherMatch(matchId: string | null) {
     };
   }, [matchId]);
 
-  // auto-join dès qu’on a matchId + playerId
+  // auto-join
   useEffect(() => {
     if (!matchId || !playerId || joinedRef.current) return;
     joinedRef.current = true;
-    fetch("/api/match/join", { method:"POST", headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({ matchId, playerId }) })
-    .catch(() => { joinedRef.current = false; });
-  }, [matchId, playerId]);
+    fetch("/api/match/join", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ matchId, playerId, name: user?.nickname }),
+    }).catch(() => { joinedRef.current = false; });
+  }, [matchId, playerId, user?.nickname]);
 
   const sendAction = useCallback(
     async (action: number, spend?: number) => {

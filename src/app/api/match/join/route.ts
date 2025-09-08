@@ -4,7 +4,7 @@ import { matchChannel, lobbyChannel } from "@/lib/pusher-channel";
 import { getMatch, setMatch, removeFromIndex } from "@/lib/match-store";
 
 export const runtime = "nodejs";
-export const preferredRegion = ["iad1"];
+export const preferredRegion = ["fra1"];
 
 export async function POST(req: NextRequest) {
   const { matchId, playerId } = await req.json();
