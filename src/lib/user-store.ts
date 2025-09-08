@@ -16,7 +16,7 @@ export async function findUser(nickname: string): Promise<DBUser | null> {
   const rows = await sql<DBUser>`
     select id, nickname, password_hash
     from users
-    where lower(nickname) = lower(${nickname})
+    where nickname_lower = lower(${nickname})
     limit 1
   `;
   return rows[0] ?? null;
@@ -26,8 +26,8 @@ export async function createUser(nickname: string, password: string): Promise<DB
   const id = Math.random().toString(36).slice(2, 12);
   const hash = await bcrypt.hash(password, 10);
   const rows = await sql<DBUser>`
-    insert into users (id, nickname, password_hash)
-    values (${id}, ${nickname}, ${hash})
+    insert into users (id, nickname, nickname_lower, password_hash)
+    values (${id}, ${nickname}, ${nickname.toLowerCase()}, ${hash})
     returning id, nickname, password_hash
   `;
   if (!rows[0]) throw new Error("insert_failed");
