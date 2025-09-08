@@ -55,7 +55,7 @@ export async function withLockedQTable(
     FROM qtable
     WHERE id = 1
   `;
-  let current = rows[0] ?? { id: 1, version: 1, qjson: {} as QTable };
+  const current = rows[0] ?? { id: 1, version: 1, qjson: {} as QTable };
 
   // defensive clone
   const q: QTable = JSON.parse(JSON.stringify(current.qjson || {}));
