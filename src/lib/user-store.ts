@@ -1,29 +1,37 @@
-import { redis } from "./redis";
 import bcrypt from "bcryptjs";
+import { neon } from "@neondatabase/serverless";
 
-type DBUser = { id: string; nickname: string; pass: string };
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) throw new Error("Missing DATABASE_URL");
+const _sql = neon(DATABASE_URL);
 
-function keyName(nickname: string) {
-  return nickname.trim().toLowerCase();
+// Petit wrapper typé pour éviter les erreurs TS sur le tag template
+async function sql<T = unknown>(strings: TemplateStringsArray, ...values: unknown[]): Promise<T[]> {
+  return _sql(strings, ...values) as unknown as Promise<T[]>;
 }
-function key(nickname: string) {
-  return `user:${keyName(nickname)}`;
-}
+
+export type DBUser = { id: string; nickname: string; pass: string };
 
 export async function findUser(nickname: string): Promise<DBUser | null> {
-  const raw = await redis.get(key(nickname));
-  return raw ? (JSON.parse(raw) as DBUser) : null;
+  const rows = await sql<DBUser>`
+    select id, nickname, pass
+    from users
+    where nickname_lower = lower(${nickname})
+    limit 1
+  `;
+  return rows[0] ?? null;
 }
 
 export async function createUser(nickname: string, password: string): Promise<DBUser> {
-  const safeNick = nickname.trim().slice(0, 24);
-  const exists = await findUser(safeNick);
-  if (exists) throw new Error("exists");
-  const id = Math.random().toString(36).slice(2, 10);
-  const pass = await bcrypt.hash(password, 10);
-  const user = { id, nickname: safeNick, pass };
-  await redis.set(key(safeNick), JSON.stringify(user));
-  return user;
+  const id = Math.random().toString(36).slice(2, 12);
+  const hash = await bcrypt.hash(password, 10);
+  const rows = await sql<DBUser>`
+    insert into users (id, nickname, nickname_lower, pass)
+    values (${id}, ${nickname}, lower(${nickname}), ${hash})
+    returning id, nickname, pass
+  `;
+  if (!rows[0]) throw new Error("insert_failed");
+  return rows[0];
 }
 
 export async function verifyPassword(nickname: string, password: string): Promise<DBUser | null> {
