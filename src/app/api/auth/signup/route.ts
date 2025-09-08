@@ -9,9 +9,11 @@ export async function POST(req: Request) {
   const n = String(nickname ?? "").trim().slice(0, 24);
   const p = String(password ?? "");
   console.log("[SIGNUP] nickname:", n);
-  if (!n || !p) {
-    console.log("[SIGNUP] missing fields");
-    return Response.json({ error: "invalid" }, { status: 400 });
+  if (!n || !p) return Response.json({ error: "invalid" }, { status: 400 });
+
+  if (!process.env.AUTH_SECRET) {
+    console.error("[SIGNUP] Missing AUTH_SECRET");
+    return Response.json({ error: "missing_auth_secret", message: "AUTH_SECRET not set on server" }, { status: 500 });
   }
 
   try {
