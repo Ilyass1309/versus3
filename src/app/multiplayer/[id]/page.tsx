@@ -53,7 +53,7 @@ export default function MatchRoomPage() {
   const disabled = !isJoined || state?.phase !== "collect";
   const [ended, setEnded] = useState<{ open: boolean; result?: string }>(() => ({ open: false }));
   const [wantsRematch, setWantsRematch] = useState(false);
-  const [waiting, setWaiting] = useState(false);
+  const [, setWaiting] = useState(false);
   const [deadline, setDeadline] = useState<number | null>(null);
   const AI_ROUTE = "/game";
 
@@ -139,7 +139,7 @@ export default function MatchRoomPage() {
   // Détection de fin + message résultat avec pseudo vainqueur
   function winnerLine() {
     const players = state?.players ?? [];
-    const names = (state as any)?.names ?? {};
+    const names: Record<string, string> = state?.names ?? {};
     // Priorité au résultat de reveal si présent
     const res = reveal?.result;
     if (res === "p" || res === "e") {
