@@ -7,7 +7,10 @@ type Ctx = {
   user: User | null;
   token: string | null;
   setUser: (u: User | null) => void;
-  setAuth: (token: string, user: User | { id: string; name?: string; nickname?: string }) => void;
+  setAuth: (
+    token: string,
+    user: User | { id: string; name?: string; nickname?: string }
+  ) => void;
   logout: () => void;
 };
 
@@ -19,8 +22,18 @@ const Ctx = createContext<Ctx>({
   logout: () => {},
 });
 
-function normalizeUser(u: any): User {
-  return { id: String(u?.id ?? ""), nickname: String(u?.nickname ?? u?.name ?? "") };
+function normalizeUser(u: unknown): User {
+  if (!u || typeof u !== "object") return { id: "", nickname: "" };
+  const rec = u as Record<string, unknown>;
+  const id =
+    typeof rec.id === "string" ? rec.id : rec.id != null ? String(rec.id) : "";
+  const nickname =
+    typeof rec.nickname === "string"
+      ? rec.nickname
+      : typeof rec.name === "string"
+      ? rec.name
+      : "";
+  return { id, nickname };
 }
 
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
@@ -33,7 +46,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       const raw = localStorage.getItem("user");
       if (t) setToken(t);
       if (raw) {
-        const parsed = JSON.parse(raw);
+        const parsed = JSON.parse(raw) as unknown;
         const nu = normalizeUser(parsed);
         if (nu.id && nu.nickname) _setUser(nu);
       }
@@ -42,14 +55,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   function setUser(u: User | null) {
     _setUser(u);
-    if (!u) {
-      localStorage.removeItem("user");
-      return;
-    }
-    localStorage.setItem("user", JSON.stringify(u));
+    if (u) localStorage.setItem("user", JSON.stringify(u));
+    else localStorage.removeItem("user");
   }
 
-  function setAuth(t: string, u: User | { id: string; name?: string; nickname?: string }) {
+  function setAuth(
+    t: string,
+    u: User | { id: string; name?: string; nickname?: string }
+  ) {
     const nu = normalizeUser(u);
     setToken(t);
     _setUser(nu);
@@ -64,7 +77,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("user");
   }
 
-  const value = useMemo(() => ({ user, token, setUser, setAuth, logout }), [user, token]);
+  const value = useMemo(
+    () => ({ user, token, setUser, setAuth, logout }),
+    [user, token]
+  );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
