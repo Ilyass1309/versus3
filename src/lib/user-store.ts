@@ -7,8 +7,8 @@ const _sql = neon(DATABASE_URL);
 
 async function sql<T = unknown>(strings: TemplateStringsArray, ...values: unknown[]): Promise<T[]> {
   try {
-    // Log la requête SQL et les valeurs
-    console.log("[SQL]", String.raw({ raw: strings } as any), values);
+    // Log la requête SQL et les valeurs (affichage lisible)
+    console.log("[SQL]", strings.raw.join(''), values);
     const result = await _sql(strings, ...values) as unknown as Promise<T[]>;
     console.log("[SQL RESULT]", result);
     return result;
