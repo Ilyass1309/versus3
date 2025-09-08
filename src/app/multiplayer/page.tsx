@@ -17,13 +17,13 @@ export default function MultiplayerPage() {
     const j = await r.json();
     setMatchId(j.matchId);
     setCurrent(j.matchId);
-    setTimeout(join, 400);
+    // Auto-join via hook
   }
 
   async function joinExisting() {
     if (!matchId) return;
     setCurrent(matchId);
-    setTimeout(join, 400);
+    // Auto-join via hook
   }
 
   return (
