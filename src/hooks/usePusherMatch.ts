@@ -33,6 +33,27 @@ export function usePusherMatch(matchId: string | null) {
   const [reveal, setReveal] = useState<ResolutionEvent | null>(null);
   const pRef = useRef<Pusher | null>(null);
   const channelRef = useRef<string | null>(null);
+  const joinedRef = useRef(false);
+
+  // reset le flag quand on change de match
+  useEffect(() => {
+    joinedRef.current = false;
+  }, [matchId]);
+
+  // auto-join quand on a matchId + playerId
+  useEffect(() => {
+    if (!matchId || !playerId || joinedRef.current) return;
+    joinedRef.current = true;
+    // fire-and-forget
+    fetch("/api/match/join", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ matchId, playerId }),
+    }).catch(() => {
+      // si échec, autorise une nouvelle tentative
+      joinedRef.current = false;
+    });
+  }, [matchId, playerId]);
 
   useEffect(() => {
     if (!matchId) return;
@@ -100,26 +121,19 @@ export function usePusherMatch(matchId: string | null) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchId]);
 
-  const join = useCallback(async () => {
-    if (!matchId || !playerId) return;
-    await fetch("/api/match/join", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ matchId, playerId }),
-    });
-  }, [matchId, playerId]);
+  const isJoined = !!(state?.players?.includes(playerId));
 
   const sendAction = useCallback(
     async (action: number, spend = 0) => {
-      if (!matchId || !playerId) return;
+      if (!matchId || !playerId || !isJoined) return;
       await fetch("/api/match/action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ matchId, playerId, action, spend }),
       });
     },
-    [matchId, playerId]
+    [matchId, playerId, isJoined]
   );
 
-  return { playerId, state, resolving, reveal, join, sendAction };
+  return { playerId, state, resolving, reveal, join: () => {}, sendAction, isJoined };
 }

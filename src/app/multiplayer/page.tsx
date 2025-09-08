@@ -6,7 +6,7 @@ import Link from "next/link";
 export default function MultiplayerPage() {
   const [matchId, setMatchId] = useState<string>("");
   const [current, setCurrent] = useState<string | null>(null);
-  const { playerId, state, join, sendAction, reveal } = usePusherMatch(current);
+  const { playerId, state, sendAction, reveal, isJoined } = usePusherMatch(current);
 
   async function create() {
     const r = await fetch("/api/match/create", { method: "POST" });
@@ -84,17 +84,17 @@ export default function MultiplayerPage() {
 
             <div className="flex gap-2">
               <button
-                disabled={state.phase !== "collect"}
+                disabled={state?.phase !== "collect" || !isJoined}
                 onClick={()=>sendAction(0)}
                 className="flex-1 px-3 py-2 rounded bg-rose-600/80 hover:bg-rose-600 text-xs font-medium disabled:opacity-40"
               >Attack</button>
               <button
-                disabled={state.phase !== "collect"}
+                disabled={state?.phase !== "collect" || !isJoined}
                 onClick={()=>sendAction(1)}
                 className="flex-1 px-3 py-2 rounded bg-sky-600/80 hover:bg-sky-600 text-xs font-medium disabled:opacity-40"
               >Defend</button>
               <button
-                disabled={state.phase !== "collect"}
+                disabled={state?.phase !== "collect" || !isJoined}
                 onClick={()=>sendAction(2)}
                 className="flex-1 px-3 py-2 rounded bg-amber-500/80 hover:bg-amber-500 text-xs font-medium disabled:opacity-40"
               >Charge</button>

@@ -10,8 +10,10 @@ export async function POST(req: NextRequest) {
   const m = matches.get(matchId) as Match | undefined;
 
   if (!m) return NextResponse.json({ error: "not_found" }, { status: 404 });
-  if (m.phase !== "collect") return NextResponse.json({ error: "phase" }, { status: 409 });
-  if (!m.players.includes(playerId)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  if (m.phase !== "collect") return NextResponse.json({ error: "wrong_phase", phase: m.phase }, { status: 409 });
+  if (!m.players.includes(playerId)) {
+    return NextResponse.json({ error: "forbidden_not_joined", players: m.players }, { status: 403 });
+  }
 
   m.actions[playerId] = { action, spend };
   await pusherServer.trigger(
