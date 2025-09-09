@@ -156,10 +156,12 @@ export async function ensureAuthTables() {
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
       nickname TEXT NOT NULL UNIQUE,
+      nickname_lower TEXT,
       password_hash TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+
   await sql`
     CREATE TABLE IF NOT EXISTS sessions (
       token TEXT PRIMARY KEY,
@@ -168,6 +170,14 @@ export async function ensureAuthTables() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+
+  // Backfill nickname_lower if missing and enforce NOT NULL afterwards
+  try {
+    await sql`UPDATE users SET nickname_lower = lower(nickname) WHERE nickname_lower IS NULL`;
+    await sql`ALTER TABLE users ALTER COLUMN nickname_lower SET NOT NULL`;
+  } catch {
+    // ignore errors during migration step (idempotent attempts may fail on some DBs)
+  }
 }
 
 export interface User {
@@ -176,23 +186,18 @@ export interface User {
   created_at: string;
 }
 
-export async function registerUser(nickname: string, password: string): Promise<{ id: number; nickname: string }> {
-  await ensureAuthTables();
-  const hash = await bcrypt.hash(password, 10);
+export async function registerUser(nickname: string, password: string) {
+  // normalize inputs
+  const nick = nickname.trim();
+  const nickLower = nick.toLowerCase();
 
-  // NOTE: pass the row type (not an array type) to sql<...>
+  // hashed password using Postgres crypt(gen_salt) via tagged sql helper
   const rows = await sql<{ id: number; nickname: string }>`
-    INSERT INTO users (nickname, password_hash)
-    VALUES (${nickname}, ${hash})
-    ON CONFLICT (nickname) DO NOTHING
+    INSERT INTO users (nickname, nickname_lower, password_hash, created_at)
+    VALUES (${nick}, ${nickLower}, crypt(${password}, gen_salt('bf')), NOW())
     RETURNING id, nickname
   `;
-
-  if (!rows || !rows[0]) {
-    const err = new Error("nickname_taken");
-    throw err;
-  }
-  return rows[0];
+  return rows[0] ?? null;
 }
 
 export async function findUserByNickname(nickname: string): Promise<{ id: number; password_hash: string } | null> {

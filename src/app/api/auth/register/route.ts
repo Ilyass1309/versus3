@@ -46,6 +46,10 @@ export async function POST(req: Request) {
 
     console.log("[REGISTER] calling registerUser");
     const user = await registerUser(nickname, password);
+    if (!user || !user.id) {
+      console.error("[REGISTER] registerUser returned null or missing id", user);
+      return NextResponse.json({ error: "server_error", message: "user_creation_failed" }, { status: 500 });
+    }
     console.log("[REGISTER] registerUser ->", { id: user.id, nickname: user.nickname });
 
     console.log("[REGISTER] creating session for user:", user.id);
