@@ -5,6 +5,16 @@ import { useParams, useRouter } from "next/navigation";
 import { getPusher } from "@/lib/pusher-client";
 import { usePusherMatch } from "@/hooks/usePusherMatch";
 
+type PusherLike = {
+  channel?: (name: string) => ChannelLike | null;
+  subscribe?: (name: string) => ChannelLike;
+  unsubscribe?: (name: string) => void;
+};
+type ChannelLike = {
+  bind: (event: string, cb: (payload?: unknown) => void) => void;
+  unbind: (event: string, cb: (payload?: unknown) => void) => void;
+};
+
 type ActionName = "Attaquer" | "Défendre" | "Charger";
 
 function actionLabel(a: number | null): ActionName | "-" {
@@ -235,19 +245,16 @@ export default function MatchRoomPage() {
   useEffect(() => {
     if (!id) return;
     const channelName = `match:${id}`;
-    let channel: any = null;
-    let pusher: any = null;
+    let channel: ChannelLike | null = null;
+    let pusher: PusherLike | null = null;
+
     try {
-      pusher = getPusher();
-      channel = pusher.channel(channelName) ?? pusher.subscribe(channelName);
-    } catch (e) {
-      try {
-        pusher = getPusher();
-        channel = pusher.subscribe(channelName);
-      } catch {
-        pusher = null;
-        channel = null;
-      }
+      pusher = getPusher() as PusherLike;
+      channel = (pusher.channel ? pusher.channel(channelName) : null) ?? (pusher.subscribe ? pusher.subscribe(channelName) : null);
+    } catch {
+      // ignore subscription errors
+      pusher = null;
+      channel = null;
     }
 
     const onJoined = (payload: unknown) => {
@@ -281,7 +288,7 @@ export default function MatchRoomPage() {
           channel.unbind("match_started", onJoined);
         }
         if (pusher) {
-          try { pusher.unsubscribe(channelName); } catch {}
+          try { pusher.unsubscribe?.(channelName); } catch {}
         }
       } catch {}
     };
