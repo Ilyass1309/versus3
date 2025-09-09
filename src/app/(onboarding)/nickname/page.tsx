@@ -27,15 +27,20 @@ export default function AuthPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nickname, password })
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setErr(json.error || "error");
+        // If server indicates invalid credentials or returns 401, show friendly message
+        if (res.status === 401 || json?.error === "invalid_credentials" || json?.error === "wrong_credentials") {
+          setErr("Le pseudo ou le mot de passe est incorrect.");
+        } else {
+          setErr(typeof json?.error === "string" && json.error ? json.error : "Erreur");
+        }
       } else {
         setUser(json.user);
         r.push("/game");
       }
     } catch {
-      setErr("network");
+      setErr("Erreur réseau");
     } finally {
       setBusy(false);
     }
