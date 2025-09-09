@@ -186,15 +186,19 @@ export interface User {
   created_at: string;
 }
 
-export async function registerUser(nickname: string, password: string) {
-  // normalize inputs
+export async function registerUser(
+  nickname: string,
+  password: string
+): Promise<{ id: number; nickname: string } | null> {
   const nick = nickname.trim();
   const nickLower = nick.toLowerCase();
 
-  // hashed password using Postgres crypt(gen_salt) via tagged sql helper
+  // hash password in Node (avoid database crypt/gen_salt)
+  const hash = await bcrypt.hash(password, 10);
+
   const rows = await sql<{ id: number; nickname: string }>`
     INSERT INTO users (nickname, nickname_lower, password_hash, created_at)
-    VALUES (${nick}, ${nickLower}, crypt(${password}, gen_salt('bf')), NOW())
+    VALUES (${nick}, ${nickLower}, ${hash}, NOW())
     RETURNING id, nickname
   `;
   return rows[0] ?? null;
