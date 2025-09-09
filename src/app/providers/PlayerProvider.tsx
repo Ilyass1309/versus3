@@ -1,5 +1,6 @@
 "use client";
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { setStoredNickname } from "@/lib/lobbyApi";
 
 export type User = { id: string; nickname: string };
 
@@ -48,15 +49,28 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       if (raw) {
         const parsed = JSON.parse(raw) as unknown;
         const nu = normalizeUser(parsed);
-        if (nu.id && nu.nickname) _setUser(nu);
+        if (nu.id && nu.nickname) {
+          _setUser(nu);
+          // ensure nickname persisted for lobby APIs
+          try {
+            if (nu.nickname) setStoredNickname(nu.nickname);
+          } catch {}
+        }
       }
     } catch {}
   }, []);
 
   function setUser(u: User | null) {
     _setUser(u);
-    if (u) localStorage.setItem("user", JSON.stringify(u));
-    else localStorage.removeItem("user");
+    if (u) {
+      localStorage.setItem("user", JSON.stringify(u));
+      // persist nickname for lobby usage
+      try {
+        if (u.nickname) setStoredNickname(u.nickname);
+      } catch {}
+    } else {
+      localStorage.removeItem("user");
+    }
   }
 
   function setAuth(
@@ -68,6 +82,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     _setUser(nu);
     localStorage.setItem("access_token", t);
     localStorage.setItem("user", JSON.stringify(nu));
+    // persist nickname for lobby usage
+    try {
+      if (nu.nickname) setStoredNickname(nu.nickname);
+    } catch {}
   }
 
   function logout() {
@@ -75,6 +93,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     _setUser(null);
     localStorage.removeItem("access_token");
     localStorage.removeItem("user");
+    // optionally clear nickname cookie/localStorage - keep it if you prefer
+    // localStorage.removeItem("nickname");
+    // document.cookie = "nickname=; Path=/; Max-Age=0";
   }
 
   const value = useMemo(
