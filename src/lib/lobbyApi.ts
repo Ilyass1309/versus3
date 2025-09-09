@@ -57,12 +57,32 @@ export async function listMatches(): Promise<Room[]> {
   return list;
 }
 
-export async function createMatch(name: string): Promise<string> {
+export async function createMatch(name?: string): Promise<string> {
+  // determine nickname: prefer explicit param, then stored user object, then legacy 'nickname', else 'guest'
+  let nickname = name;
+  if (!nickname && typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem("user");
+      if (raw) {
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        nickname =
+          (typeof parsed.nickname === "string" && parsed.nickname) ||
+          (typeof parsed.name === "string" && parsed.name) ||
+          undefined;
+      }
+    } catch {
+      // ignore JSON errors
+    }
+    if (!nickname) {
+      nickname = localStorage.getItem("nickname") ?? "guest";
+    }
+  }
+
   const body = await asJson<CreateMatchResponse>(
     await fetch("/api/match/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name: nickname }),
     }),
   );
   return String(body.matchId ?? body.id ?? body.match_id ?? "");
