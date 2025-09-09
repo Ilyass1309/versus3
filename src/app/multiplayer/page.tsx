@@ -15,12 +15,12 @@ type Room = {
   owner?: string;
   name?: string;
   // different APIs may return players under different keys / formats
-  players?: string[] | any;
-  players_list?: string[] | any;
-  playersArray?: string[] | any;
+  players?: string[] | unknown;
+  players_list?: string[] | unknown;
+  playersArray?: string[] | unknown;
   status?: string;
   // allow additional properties without TS errors
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
 export default function MultiplayerPage() {
