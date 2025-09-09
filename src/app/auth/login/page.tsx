@@ -14,35 +14,8 @@ export default function LoginPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-    setLoading(true);
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nickname, password }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(body?.error ?? "Connexion impossible");
-        setLoading(false);
-        return;
-      }
-      if (body?.token && body?.user) {
-        setAuth(body.token, body.user);
-      } else if (body?.user) {
-        // fallback if no token returned
-        setUser(body.user);
-      } else {
-        // legacy response shape
-        const user = { id: body?.id ?? "", nickname: nickname };
-        setUser(user);
-      }
-      router.push("/game");
-    } catch {
-      setError("Erreur réseau");
-      setLoading(false);
-    }
+    // Use the onboarding nickname flow instead of API login
+    router.push("/nickname");
   }
 
   return (
