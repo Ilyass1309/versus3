@@ -16,9 +16,8 @@ export default function MultiplayerPage() {
     setMyNick(typeof window !== "undefined" ? localStorage.getItem("nickname") : null);
   }, []);
 
-  // lobby (rooms)
+  // lobby (rooms) — NE PAS déstructurer `rooms` pour éviter le warning unused
   const {
-    rooms,
     loading: roomsLoading,
     hasOwnRoom,
     visibleRooms,
@@ -69,8 +68,10 @@ export default function MultiplayerPage() {
       const id = await createMatch(myNick ?? "guest");
       setRoomMessage("Salle créée: " + id);
       await refreshRooms();
-    } catch (e: any) {
-      setRoomMessage("Erreur création : " + (e?.message ?? "server"));
+    } catch (e: unknown) {
+      setRoomMessage(
+        "Erreur création : " + (e instanceof Error ? e.message : "server"),
+      );
     } finally {
       setRoomLoading(false);
     }
@@ -87,8 +88,8 @@ export default function MultiplayerPage() {
         await joinMatch(id, playerId);
         setRoomMessage("Rejoint: " + id);
         await refreshRooms();
-      } catch (e: any) {
-        setRoomMessage("Erreur join : " + (e?.message ?? "server"));
+      } catch (e: unknown) {
+        setRoomMessage("Erreur join : " + (e instanceof Error ? e.message : "server"));
       } finally {
         setRoomLoading(false);
       }
