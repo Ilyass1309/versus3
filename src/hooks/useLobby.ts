@@ -1,4 +1,4 @@
-// hooks/useLobby.ts
+// src/hooks/useLobby.ts
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
