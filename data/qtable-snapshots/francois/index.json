@@ -2062,5 +2062,41 @@
     "epsilon": 0.6777,
     "full": true,
     "qCountStored": 20240
+  },
+  {
+    "episode": 18070000,
+    "timestamp": 1757420543897,
+    "coveragePct": 68.706,
+    "states": 20245,
+    "minVisits": 1,
+    "maxVisits": 19810000,
+    "avgVisits": 21653.04,
+    "epsilon": 0.6776,
+    "full": true,
+    "qCountStored": 20245
+  },
+  {
+    "episode": 18170000,
+    "timestamp": 1757421021095,
+    "coveragePct": 68.744,
+    "states": 20256,
+    "minVisits": 1,
+    "maxVisits": 19910000,
+    "avgVisits": 21761.67,
+    "epsilon": 0.6774,
+    "full": true,
+    "qCountStored": 20256
+  },
+  {
+    "episode": 18270000,
+    "timestamp": 1757421481672,
+    "coveragePct": 68.75,
+    "states": 20258,
+    "minVisits": 1,
+    "maxVisits": 20010000,
+    "avgVisits": 21878.8,
+    "epsilon": 0.6773,
+    "full": true,
+    "qCountStored": 20258
   }
 ]
