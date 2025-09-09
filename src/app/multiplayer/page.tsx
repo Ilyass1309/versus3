@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { GameShell } from "@/app/components/game/GameShell";
 
 type ScoreRow = { nickname: string; points?: number; wins?: number };
-// Replace the narrow Room type with a broader one that matches all server shapes
 type Room = {
   id?: string;
   matchId?: string;
@@ -14,12 +13,10 @@ type Room = {
   host_nickname?: string;
   owner?: string;
   name?: string;
-  // different APIs may return players under different keys / formats
   players?: string[] | unknown;
   players_list?: string[] | unknown;
   playersArray?: string[] | unknown;
   status?: string;
-  // allow additional properties without TS errors
   [key: string]: unknown;
 };
 
@@ -32,8 +29,13 @@ export default function MultiplayerPage() {
   const [error, setError] = useState<string | null>(null);
   const [roomLoading, setRoomLoading] = useState(false);
   const [roomMessage, setRoomMessage] = useState<string | null>(null);
+  const [myNick, setMyNick] = useState<string | null>(null);
 
   const MAX_PLAYERS = 2; // adjust if your match size differs
+
+  useEffect(() => {
+    setMyNick(typeof window !== "undefined" ? localStorage.getItem("nickname") : null);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -66,10 +68,9 @@ export default function MultiplayerPage() {
       try {
         const res = await fetch("/api/match/list");
         const body = await res.json().catch(() => ({}));
-        // accept several shapes returned by different implementations
         const raw: Room[] = body?.matches ?? body?.list ?? body?.rooms ?? body?.data ?? [];
         const parsed = (raw || []).map((r) => {
-          let players = r.players ?? r.players_list ?? r.playersArray ?? [];
+          let players = (r as any).players ?? (r as any).players_list ?? (r as any).playersArray ?? [];
           if (typeof players === "string") {
             try {
               players = JSON.parse(players);
@@ -101,11 +102,52 @@ export default function MultiplayerPage() {
     };
   }, []);
 
+  // Determine if current user already has a room (host or present in players)
+  const hasOwnRoom = (() => {
+    if (!myNick) return false;
+    return rooms.some((r) => {
+      const players = Array.isArray(r.players) ? (r.players as string[]) : [];
+      const host = (r.host ?? r.host_nickname ?? r.owner ?? r.name) as string | undefined;
+      return host === myNick || players.includes(myNick);
+    });
+  })();
+
+  async function refreshRooms() {
+    try {
+      const res = await fetch("/api/match/list");
+      const body = await res.json().catch(() => ({}));
+      const raw: Room[] = body?.matches ?? body?.list ?? body?.rooms ?? body?.data ?? [];
+      const parsed = (raw || []).map((r) => {
+        let players = (r as any).players ?? (r as any).players_list ?? (r as any).playersArray ?? [];
+        if (typeof players === "string") {
+          try {
+            players = JSON.parse(players);
+          } catch {
+            players = [];
+          }
+        }
+        return {
+          id: r.id ?? r.matchId ?? r.match_id,
+          host: r.host ?? r.host_nickname ?? r.owner ?? r.name,
+          players,
+          status: r.status ?? "open",
+        } as Room;
+      });
+      setRooms(parsed);
+    } catch (err) {
+      console.error("[MULTI] refreshRooms error", err);
+    }
+  }
+
   async function handleCreate() {
+    if (hasOwnRoom) {
+      setRoomMessage("Vous avez déjà une salle ouverte");
+      return;
+    }
     setRoomLoading(true);
     setRoomMessage(null);
     try {
-      const name = localStorage.getItem("nickname") ?? "guest";
+      const name = myNick ?? "guest";
       const res = await fetch("/api/match/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -117,17 +159,7 @@ export default function MultiplayerPage() {
       } else {
         const id = body?.matchId ?? body?.id ?? body?.match_id ?? "unknown";
         setRoomMessage("Salle créée: " + id);
-        // refresh rooms immediately
-        setTimeout(() => fetch("/api/match/list").then(r => r.json()).then(b => {
-          const raw: Room[] = b?.matches ?? b?.list ?? b?.rooms ?? b?.data ?? [];
-          setRooms(raw.map((r) => {
-            let players = r.players ?? [];
-            if (typeof players === "string") {
-              try { players = JSON.parse(players); } catch { players = []; }
-            }
-            return { id: r.id ?? r.matchId ?? r.match_id, host: r.host ?? r.host_nickname ?? r.owner ?? r.name, players, status: r.status ?? "open" };
-          }));
-        }).catch(()=>{}), 200);
+        await refreshRooms();
       }
     } catch {
       setRoomMessage("Erreur réseau");
@@ -136,16 +168,15 @@ export default function MultiplayerPage() {
     }
   }
 
-  async function handleJoinRoom(roomId?: string) {
-    setRoomLoading(true);
-    setRoomMessage(null);
-    if (!roomId) {
-      setRoomMessage("ID de salle invalide");
-      setRoomLoading(false);
+  async function handleJoinRoom(roomId: string) {
+    if (hasOwnRoom) {
+      setRoomMessage("Vous avez déjà une salle ouverte");
       return;
     }
+    setRoomLoading(true);
+    setRoomMessage(null);
     try {
-      const playerId = localStorage.getItem("nickname") ?? Math.random().toString(36).slice(2, 8);
+      const playerId = myNick ?? Math.random().toString(36).slice(2, 8);
       const res = await fetch("/api/match/join", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -156,22 +187,7 @@ export default function MultiplayerPage() {
         setRoomMessage("Erreur join : " + (body?.error ?? "server"));
       } else {
         setRoomMessage("Rejoint: " + (body?.state?.id ?? roomId));
-        // refresh rooms so full rooms disappear
-        try {
-          const listRes = await fetch("/api/match/list");
-          const listBody = await listRes.json().catch(() => ({}));
-          const raw: Room[] = listBody?.matches ?? listBody?.list ?? listBody?.rooms ?? listBody?.data ?? [];
-          const parsed = (raw || []).map((r) => {
-            let players = r.players ?? r.players_list ?? [];
-            if (typeof players === "string") {
-              try { players = JSON.parse(players); } catch { players = []; }
-            }
-            return { id: r.id ?? r.matchId ?? r.match_id, host: r.host ?? r.host_nickname ?? r.owner ?? r.name, players, status: r.status ?? "open" };
-          });
-          setRooms(parsed);
-        } catch {}
-        // optional navigation to room page if implemented:
-        // router.push(`/multiplayer/room/${roomId}`);
+        await refreshRooms();
       }
     } catch {
       setRoomMessage("Erreur réseau");
@@ -180,9 +196,42 @@ export default function MultiplayerPage() {
     }
   }
 
+  async function handleDeleteOwnRoom() {
+    if (!myNick) return;
+    const own = rooms.find((r) => {
+      const host = (r.host ?? r.host_nickname ?? r.owner ?? r.name) as string | undefined;
+      return host === myNick;
+    });
+    if (!own || !own.id) {
+      setRoomMessage("Aucune salle à supprimer");
+      return;
+    }
+    if (!confirm("Supprimer votre salle ?")) return;
+    setRoomLoading(true);
+    try {
+      // call existing API if available; adjust path/name if your server uses another route
+      const res = await fetch("/api/match/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ matchId: own.id, playerId: myNick }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setRoomMessage("Erreur suppression : " + (body?.error ?? "server"));
+      } else {
+        setRoomMessage("Salle supprimée");
+        await refreshRooms();
+      }
+    } catch (e) {
+      setRoomMessage("Erreur réseau");
+    } finally {
+      setRoomLoading(false);
+    }
+  }
+
   // filter visible rooms: open and not full
   const visibleRooms = rooms.filter((r) => {
-    const players = Array.isArray(r.players) ? r.players : [];
+    const players = Array.isArray(r.players) ? (r.players as string[]) : [];
     const count = players.length;
     return (r.status === "open" || !r.status) && count < MAX_PLAYERS;
   });
@@ -200,7 +249,7 @@ export default function MultiplayerPage() {
               </p>
             </div>
 
-            {/* Return button: prominent, aligned with game style */}
+            {/* Return button */}
             <div>
               <button
                 onClick={() => router.push("/game")}
@@ -210,6 +259,39 @@ export default function MultiplayerPage() {
                 ← Retour au jeu
               </button>
             </div>
+          </div>
+
+          {/* Controls (moved above table) */}
+          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+            <button
+              onClick={handleCreate}
+              disabled={roomLoading || hasOwnRoom}
+              className="px-4 py-2 rounded bg-indigo-500 text-white font-medium hover:bg-indigo-600 disabled:opacity-50"
+            >
+              {roomLoading ? "Chargement..." : "Créer une partie"}
+            </button>
+
+            <button
+              onClick={() => {
+                const first = visibleRooms[0];
+                if (first && first.id) handleJoinRoom(first.id as string);
+                else setRoomMessage("Aucune salle ouverte pour rejoindre");
+              }}
+              disabled={roomLoading || hasOwnRoom || visibleRooms.length === 0}
+              className="px-4 py-2 rounded bg-emerald-500 text-black font-medium hover:bg-emerald-600 disabled:opacity-50"
+            >
+              {roomLoading ? "Chargement..." : "Rejoindre une partie"}
+            </button>
+
+            {hasOwnRoom && (
+              <button
+                onClick={handleDeleteOwnRoom}
+                disabled={roomLoading}
+                className="px-4 py-2 rounded bg-rose-600 text-white font-medium hover:bg-rose-700 disabled:opacity-50"
+              >
+                Supprimer ma salle
+              </button>
+            )}
           </div>
 
           {/* Rooms table */}
@@ -238,17 +320,20 @@ export default function MultiplayerPage() {
                     </tr>
                   ) : (
                     visibleRooms.map((r) => {
-                      const players = Array.isArray(r.players) ? r.players : [];
-                      const host = r.host ?? r.host_nickname ?? "invité";
+                      const players = Array.isArray(r.players) ? (r.players as string[]) : [];
+                      // Prefer explicit host field, fallback to first player (creator) if available
+                      const host =
+                        (r.host ?? r.host_nickname ?? r.owner ?? r.name) ||
+                        (players.length > 0 ? players[0] : "invité");
                       return (
-                        <tr key={r.id} className="border-t border-slate-800">
+                        <tr key={r.id ?? Math.random().toString(36)} className="border-t border-slate-800">
                           <td className="py-3">{host}</td>
                           <td className="py-3">{players.length}/{MAX_PLAYERS}</td>
                           <td className="py-3 font-mono">{r.id}</td>
                           <td className="py-3 text-right">
                             <button
-                              onClick={() => r.id && handleJoinRoom(r.id)}
-                              disabled={roomLoading || !r.id}
+                              onClick={() => r.id && handleJoinRoom(r.id as string)}
+                              disabled={roomLoading || !r.id || hasOwnRoom}
                               className="px-3 py-1 rounded bg-emerald-500 text-black font-medium hover:bg-emerald-600 disabled:opacity-50"
                             >
                               {roomLoading ? "..." : "Rejoindre"}
@@ -270,16 +355,17 @@ export default function MultiplayerPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-4 rounded-md bg-slate-800 border border-slate-700">
-                <h3 className="font-medium text-slate-100">Rejoindre une partie</h3>
-                <p className="text-sm text-slate-400 mt-1">Rejoins un adversaire al&eacute;atoire ou choisi.</p>
+                <h3 className="font-medium text-slate-100">Rejoindre (auto)</h3>
+                <p className="text-sm text-slate-400 mt-1">Rejoins un adversaire aléatoire ou choisi.</p>
                 <div className="mt-4">
                   <button
                     onClick={() => {
                       const first = visibleRooms[0];
-                      if (first) handleJoinRoom(first.id);
+                      if (first && first.id) handleJoinRoom(first.id as string);
                       else setRoomMessage("Aucune salle ouverte pour rejoindre");
                     }}
-                    className="px-3 py-2 rounded bg-emerald-500 text-black font-medium hover:bg-emerald-600"
+                    disabled={roomLoading || hasOwnRoom}
+                    className="px-3 py-2 rounded bg-emerald-500 text-black font-medium hover:bg-emerald-600 disabled:opacity-50"
                   >
                     {roomLoading ? "Chargement..." : "Rejoindre (auto)"}
                   </button>
@@ -295,7 +381,8 @@ export default function MultiplayerPage() {
                 <div className="mt-4">
                   <button
                     onClick={handleCreate}
-                    className="px-3 py-2 rounded bg-indigo-500 text-white font-medium hover:bg-indigo-600"
+                    disabled={hasOwnRoom}
+                    className="px-3 py-2 rounded bg-indigo-500 text-white font-medium hover:bg-indigo-600 disabled:opacity-50"
                   >
                     {roomLoading ? "Chargement..." : "Créer"}
                   </button>
