@@ -44,6 +44,7 @@ export async function listMatches(): Promise<Room[]> {
   const body = await asJson<MatchListResponse>(
     await fetch("/api/match/list", { cache: "no-store" }),
   );
+  console.debug("[listMatches] body =", body);
 
   const raw: unknown[] =
     arrayFromUnknown(body.matches) ||
@@ -51,7 +52,9 @@ export async function listMatches(): Promise<Room[]> {
     arrayFromUnknown(body.rooms) ||
     arrayFromUnknown(body.data);
 
-  return raw.map(adaptRoom).filter(Boolean) as Room[];
+  const list = raw.map(adaptRoom).filter(Boolean) as Room[];
+  console.debug("[listMatches] rooms =", list);
+  return list;
 }
 
 export async function createMatch(name: string): Promise<string> {

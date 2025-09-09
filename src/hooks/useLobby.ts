@@ -6,7 +6,7 @@ import { Room } from "@/types/lobby";
 import { deleteMatch, listMatches } from "@/lib/lobbyApi";
 
 const LOBBY_POLL_MS = 4000;
-const MAX_PLAYERS = 2; // ajuste si la taille de tes matchs change
+const MAX_PLAYERS = 2;
 
 export function useLobby(myNick: string | null) {
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -41,10 +41,14 @@ export function useLobby(myNick: string | null) {
     return rooms.some((r) => r.host === myNick || r.players.includes(myNick));
   }, [rooms, myNick]);
 
-  const visibleRooms = useMemo(
-    () => rooms.filter((r) => r.status === "open" && r.players.length < MAX_PLAYERS),
-    [rooms],
-  );
+  // ← plus permissif: tout statut ≠ "closed" (insensible à la casse)
+  const visibleRooms = useMemo(() => {
+    return rooms.filter((r) => {
+      const status = (r.status ?? "open").toString().toLowerCase();
+      const notClosed = status !== "closed";
+      return notClosed && r.players.length < MAX_PLAYERS;
+    });
+  }, [rooms]);
 
   const leaveAndDeleteOwn = useCallback(async () => {
     if (!myNick) return false;
@@ -62,7 +66,7 @@ export function useLobby(myNick: string | null) {
   }, [visibleRooms]);
 
   return {
-    rooms,
+    rooms,             // ← on expose rooms pour l'affichage complet
     loading,
     hasOwnRoom,
     visibleRooms,

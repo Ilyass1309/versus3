@@ -18,6 +18,7 @@ export default function MultiplayerPage() {
 
   // lobby (rooms) — NE PAS déstructurer `rooms` pour éviter le warning unused
   const {
+    rooms,
     loading: roomsLoading,
     hasOwnRoom,
     visibleRooms,
@@ -176,7 +177,7 @@ export default function MultiplayerPage() {
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-medium text-slate-100">Salles disponibles</h3>
               <div className="text-sm text-slate-400">
-                {roomsLoading ? "Chargement..." : `${visibleRooms.length} disponible(s)`}
+                {roomsLoading ? "Chargement..." : `${rooms.length} salle(s)`}
               </div>
             </div>
 
@@ -186,32 +187,40 @@ export default function MultiplayerPage() {
                   <tr className="text-slate-400 text-left">
                     <th className="pb-2">Hôte</th>
                     <th className="pb-2">Joueurs</th>
+                    <th className="pb-2">Statut</th>
                     <th className="pb-2">Code</th>
                     <th className="pb-2" />
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleRooms.length === 0 ? (
+                  {rooms.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="py-4 text-slate-400">
-                        Aucune salle ouverte
+                      <td colSpan={5} className="py-4 text-slate-400">
+                        Aucune salle
                       </td>
                     </tr>
                   ) : (
-                    visibleRooms.map((r) => {
+                    rooms.map((r) => {
                       const players = r.players;
                       const host = r.host || (players[0] ?? "invité");
+                      const status = (r.status ?? "open").toString();
+                      const canJoin =
+                        status.toLowerCase() !== "closed" &&
+                        players.length < MAX_PLAYERS &&
+                        !hasOwnRoom;
+
                       return (
                         <tr key={r.id} className="border-t border-slate-800">
                           <td className="py-3">{host}</td>
                           <td className="py-3">
                             {players.length}/{MAX_PLAYERS}
                           </td>
+                          <td className="py-3">{status}</td>
                           <td className="py-3 font-mono">{r.id}</td>
                           <td className="py-3 text-right">
                             <button
-                              onClick={() => handleJoin(r.id)}
-                              disabled={roomLoading || hasOwnRoom}
+                              onClick={() => canJoin && handleJoin(r.id)}
+                              disabled={!canJoin || roomLoading}
                               aria-busy={roomLoading}
                               className="px-3 py-1 rounded bg-emerald-500 text-black font-medium hover:bg-emerald-600 disabled:opacity-50"
                             >
@@ -226,6 +235,7 @@ export default function MultiplayerPage() {
               </table>
             </div>
           </section>
+
 
           <section className="rounded-md border border-slate-800 p-4 bg-gradient-to-b from-slate-850 via-slate-900 to-slate-950">
             <p className="text-sm text-slate-400 mb-4">
