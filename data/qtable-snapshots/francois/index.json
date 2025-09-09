@@ -2014,5 +2014,17 @@
     "epsilon": 0.6779,
     "full": true,
     "qCountStored": 20230
+  },
+  {
+    "episode": 17670000,
+    "timestamp": 1757418679234,
+    "coveragePct": 68.669,
+    "states": 20234,
+    "minVisits": 1,
+    "maxVisits": 19410000,
+    "avgVisits": 21251.2,
+    "epsilon": 0.6778,
+    "full": true,
+    "qCountStored": 20234
   }
 ]

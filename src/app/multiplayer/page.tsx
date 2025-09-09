@@ -255,34 +255,13 @@ export default function MultiplayerPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-4 rounded-md bg-slate-800 border border-slate-700">
                 <h3 className="font-medium text-slate-100">Rejoindre (auto)</h3>
-                <p className="text-sm text-slate-400 mt-1">Rejoins un adversaire aléatoire ou choisi.</p>
-                <div className="mt-4">
-                  <button
-                    onClick={() =>
-                      handleJoin().catch(() => setRoomMessage("Aucune salle ouverte pour rejoindre"))
-                    }
-                    disabled={roomLoading || hasOwnRoom}
-                    className="px-3 py-2 rounded bg-emerald-500 text-black font-medium hover:bg-emerald-600 disabled:opacity-50"
-                  >
-                    {roomLoading ? "Chargement..." : "Rejoindre (auto)"}
-                  </button>
-                </div>
+                <p className="text-sm text-slate-400 mt-1">Rejoins un adversaire aléatoire ou choisi. Utilise les boutons en haut pour rejoindre ou créer une partie.</p>
                 {roomMessage && <p className="text-sm text-slate-400 mt-2">{roomMessage}</p>}
               </div>
 
               <div className="p-4 rounded-md bg-slate-800 border border-slate-700">
                 <h3 className="font-medium text-slate-100">Créer une partie</h3>
-                <p className="text-sm text-slate-400 mt-1">Crée une salle et attends un adversaire.</p>
-                <div className="mt-4">
-                  <button
-                    onClick={handleCreate}
-                    disabled={hasOwnRoom}
-                    className="px-3 py-2 rounded bg-indigo-500 text-white font-medium hover:bg-indigo-600 disabled:opacity-50"
-                  >
-                    {roomLoading ? "Chargement..." : "Créer"}
-                  </button>
-                </div>
-                {roomMessage && <p className="text-sm text-slate-400 mt-2">{roomMessage}</p>}
+                <p className="text-sm text-slate-400 mt-1">Crée une salle et attends un adversaire. Le bouton correspondant se trouve en haut de la page.</p>
               </div>
             </div>
           </section>
