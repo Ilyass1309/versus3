@@ -33,10 +33,10 @@ export async function addPointsToUserId(userId: number, delta: number) {
   await addPointsToNickname(row.nickname, delta);
 }
 
-export async function getLeaderboard(limit = 10): Promise<Array<{ nickname: string; points: number }>> {
+export async function getLeaderboard(limit = 10): Promise<Array<{ nickname: string; wins: number }>> {
   await ensurePlayerScoresTable();
-  const rows = await sql<{ nickname: string; points: number }>`
-    SELECT nickname, wins AS points
+  const rows = await sql<{ nickname: string; wins: number }>`
+    SELECT nickname, wins
     FROM player_scores
     ORDER BY wins DESC, nickname ASC
     LIMIT ${limit}
