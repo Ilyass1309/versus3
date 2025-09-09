@@ -35,6 +35,39 @@ function lockKey(id: string) {
   return `lock:match:${id}`;
 }
 
+/* Ajout : removeFromIndex + acquireMatchLock (pour les routes join/action) */
+export async function removeFromIndex(id: string): Promise<void> {
+  try {
+    await redis.zrem(INDEX_KEY, id);
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Essaye d'acquérir un lock pour une matchId.
+ * Retourne une fonction `release()` à appeler (await release()) ou null si indisponible.
+ * ttl est en secondes (default 5s).
+ */
+export async function acquireMatchLock(id: string, ttl = 5): Promise<(() => Promise<void>) | null> {
+  const token = Math.random().toString(36).slice(2);
+  // ioredis signature: set(key, value, "EX", ttl, "NX")
+  const res = await redis.set(lockKey(id), token, "EX", ttl, "NX");
+  if (res !== "OK") return null;
+
+  const release = async () => {
+    try {
+      // safe release: supprime la clé seulement si le token correspond
+      const lua = `if redis.call("get",KEYS[1]) == ARGV[1] then return redis.call("del",KEYS[1]) else return 0 end`;
+      await redis.eval(lua, 1, lockKey(id), token);
+    } catch {
+      // ignore
+    }
+  };
+
+  return release;
+}
+
 export async function getMatch(id: string): Promise<Match | null> {
   const raw = await redis.get(matchKey(id));
   if (!raw) return null;
@@ -50,15 +83,19 @@ export async function setMatch(m: Match): Promise<void> {
 }
 
 export async function createNewMatch(id: string, initial: RLState, createdByName?: string): Promise<Match> {
+  // If a creator nickname is provided, add them as the first player so the room is visible
+  const initialPlayers = createdByName ? [createdByName] : [];
+  const initialNames: Record<string, string> = createdByName ? { [createdByName]: createdByName } : {};
+
   const m: Match = {
     id,
     createdAt: Date.now(),
-    players: [],
+    players: initialPlayers,
     state: initial,
     actions: {},
     turn: initial.turn ?? 1,
     phase: "collect",
-    names: {},
+    names: initialNames,
     createdByName,
     rematchReady: [],
   };
@@ -68,39 +105,9 @@ export async function createNewMatch(id: string, initial: RLState, createdByName
   return m;
 }
 
-export async function removeFromIndex(id: string): Promise<void> {
-  await redis.zrem(INDEX_KEY, id);
-}
-
-export async function addToIndex(id: string, createdAt: number): Promise<void> {
-  await redis.zadd(INDEX_KEY, createdAt, id);
-}
-
-export type ReleaseFn = () => Promise<void>;
-
-// Lock best-effort pour sérialiser la résolution
-export async function acquireMatchLock(
-  matchId: string,
-  ttlSec = 2
-): Promise<ReleaseFn | null> {
-  const key = lockKey(matchId);
-  const token = Math.random().toString(36).slice(2);
-  const secs = Math.max(1, Math.floor(ttlSec));
-  const res = (await redis.set(key, token, "EX", secs, "NX")) as "OK" | null;
-  if (res !== "OK") return null;
-
-  return async () => {
-    try {
-      const current = await redis.get(key);
-      if (current === token) await redis.del(key);
-    } catch {
-      // noop
-    }
-  };
-}
-
 // Liste des salons ouverts (non complets)
-export async function listOpenMatches(limit = 50): Promise<Array<{ id: string; players: number; createdAt: number; createdBy?: string }>> {
+// Now returns the list of players (nicknames) instead of only a players count.
+export async function listOpenMatches(limit = 50): Promise<Array<{ id: string; players: string[]; createdAt: number; createdBy?: string }>> {
   const ids = await redis.zrevrange(INDEX_KEY, 0, Math.max(0, limit - 1));
   if (ids.length === 0) return [];
 
@@ -108,7 +115,7 @@ export async function listOpenMatches(limit = 50): Promise<Array<{ id: string; p
   const pipeline = redis.pipeline();
   for (const id of ids) pipeline.get(matchKey(id));
 
-  const out: Array<{ id: string; players: number; createdAt: number; createdBy?: string }> = [];
+  const out: Array<{ id: string; players: string[]; createdAt: number; createdBy?: string }> = [];
   const toCleanup: string[] = [];
 
   const execRes = await pipeline.exec();
@@ -124,10 +131,12 @@ export async function listOpenMatches(limit = 50): Promise<Array<{ id: string; p
     }
     try {
       const m = JSON.parse(raw) as Match;
-      const playersCount = m.players?.length ?? 0;
+      const playersArr = Array.isArray(m.players) ? m.players.map((p) => String(p)) : [];
+      const playersCount = playersArr.length;
       const ended = m.phase === "ended";
+      // keep matches that are not full (less than 2 players) and not ended
       if (playersCount < 2 && !ended) {
-        out.push({ id: m.id, players: playersCount, createdAt: m.createdAt, createdBy: m.createdByName });
+        out.push({ id: m.id, players: playersArr, createdAt: m.createdAt, createdBy: m.createdByName });
       } else {
         toCleanup.push(id);
       }
