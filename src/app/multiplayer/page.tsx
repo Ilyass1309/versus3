@@ -245,26 +245,6 @@ export default function MultiplayerPage() {
               </table>
             </div>
           </section>
-
-
-          <section className="rounded-md border border-slate-800 p-4 bg-gradient-to-b from-slate-850 via-slate-900 to-slate-950">
-            <p className="text-sm text-slate-400 mb-4">
-              Ici s&apos;affichera la liste des parties, l&apos;état des matchs et les contrôles de lobby.
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-md bg-slate-800 border border-slate-700">
-                <h3 className="font-medium text-slate-100">Rejoindre (auto)</h3>
-                <p className="text-sm text-slate-400 mt-1">Rejoins un adversaire aléatoire ou choisi. Utilise les boutons en haut pour rejoindre ou créer une partie.</p>
-                {roomMessage && <p className="text-sm text-slate-400 mt-2">{roomMessage}</p>}
-              </div>
-
-              <div className="p-4 rounded-md bg-slate-800 border border-slate-700">
-                <h3 className="font-medium text-slate-100">Créer une partie</h3>
-                <p className="text-sm text-slate-400 mt-1">Crée une salle et attends un adversaire. Le bouton correspondant se trouve en haut de la page.</p>
-              </div>
-            </div>
-          </section>
         </main>
 
         {/* Sidebar leaderboard */}
