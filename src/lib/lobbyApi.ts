@@ -1,5 +1,5 @@
 // lib/lobbyApi.ts
-import { Room, ScoreRow, adaptRoom } from "@/types/Lobby";
+import { Room, ScoreRow, adaptRoom } from "@/types/lobby";
 
 async function asJson<T>(res: Response): Promise<T> {
   const body = await res.json().catch(() => ({}));

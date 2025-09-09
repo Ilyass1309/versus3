@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { GameShell } from "@/app/components/game/GameShell";
 import { useLobby } from "@/hooks/useLobby";
 import { createMatch, fetchLeaderboard, joinMatch } from "@/lib/lobbyApi";
-import type { ScoreRow } from "@/types/Lobby";
+import type { ScoreRow } from "@/types/lobby";
 
 export default function MultiplayerPage() {
   const router = useRouter();

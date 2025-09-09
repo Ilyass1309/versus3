@@ -1,4 +1,4 @@
-// types/Lobby.ts
+// types/lobby.ts
 export type ScoreRow = { nickname: string; points?: number; wins?: number };
 
 export type Room = {

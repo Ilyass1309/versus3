@@ -2,7 +2,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Room } from "@/types/Lobby";
+import { Room } from "@/types/lobby";
 import { deleteMatch, listMatches } from "@/lib/lobbyApi";
 
 const LOBBY_POLL_MS = 4000;
