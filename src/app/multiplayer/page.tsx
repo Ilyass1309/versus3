@@ -1,243 +1,113 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { GameShell } from "@/app/components/game/GameShell";
-
-type ScoreRow = { nickname: string; points?: number; wins?: number };
-type Room = {
-  id?: string;
-  matchId?: string;
-  match_id?: string;
-  host?: string;
-  host_nickname?: string;
-  owner?: string;
-  name?: string;
-  players?: string[] | unknown;
-  players_list?: string[] | unknown;
-  playersArray?: string[] | unknown;
-  status?: string;
-  [key: string]: unknown;
-};
-
-// helper: safely parse players field without any
-function parsePlayersField(obj: unknown): string[] {
-  if (!obj || typeof obj !== "object") return [];
-  const o = obj as Record<string, unknown>;
-  const raw = o.players ?? o.players_list ?? o.playersArray ?? [];
-  if (Array.isArray(raw)) return raw.map((v) => String(v));
-  if (typeof raw === "string") {
-    try {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed.map((v) => String(v));
-    } catch {
-      return [];
-    }
-  }
-  return [];
-}
+import { useLobby } from "@/hooks/useLobby";
+import { createMatch, fetchLeaderboard, joinMatch } from "@/lib/lobbyApi";
+import type { ScoreRow } from "@/types/Lobby";
 
 export default function MultiplayerPage() {
   const router = useRouter();
-  const [leaderboard, setLeaderboard] = useState<ScoreRow[]>([]);
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [roomsLoading, setRoomsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [roomLoading, setRoomLoading] = useState(false);
-  const [roomMessage, setRoomMessage] = useState<string | null>(null);
+
+  // nickname
   const [myNick, setMyNick] = useState<string | null>(null);
-
-  const MAX_PLAYERS = 2; // adjust if your match size differs
-
   useEffect(() => {
     setMyNick(typeof window !== "undefined" ? localStorage.getItem("nickname") : null);
   }, []);
 
+  // lobby (rooms)
+  const {
+    rooms,
+    loading: roomsLoading,
+    hasOwnRoom,
+    visibleRooms,
+    refreshRooms,
+    leaveAndDeleteOwn,
+    quickJoin,
+    MAX_PLAYERS,
+  } = useLobby(myNick);
+
+  // leaderboard
+  const [leaderboard, setLeaderboard] = useState<ScoreRow[]>([]);
+  const [lbLoading, setLbLoading] = useState(true);
+  const [lbError, setLbError] = useState<string | null>(null);
+
   useEffect(() => {
     let mounted = true;
-    async function fetchBoard() {
-      setLoading(true);
-      setError(null);
+    const run = async () => {
       try {
-        const res = await fetch("/api/scoreboard");
-        const body = await res.json().catch(() => ({}));
-        const list = body?.top ?? body?.leaderboard ?? [];
-        if (mounted) setLeaderboard(list);
+        setLbLoading(true);
+        const list = await fetchLeaderboard();
+        if (mounted) {
+          setLeaderboard(list);
+          setLbError(null);
+        }
       } catch {
-        if (mounted) setError("Impossible de charger le classement");
+        if (mounted) setLbError("Impossible de charger le classement");
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted) setLbLoading(false);
       }
-    }
-    fetchBoard();
-    const iv = setInterval(fetchBoard, 30_000);
+    };
+    run();
+    const iv = setInterval(run, 30_000);
     return () => {
       mounted = false;
       clearInterval(iv);
     };
   }, []);
 
-  useEffect(() => {
-    let mounted = true;
-    async function fetchRooms() {
-      setRoomsLoading(true);
+  // messages & loading pour les actions
+  const [roomLoading, setRoomLoading] = useState(false);
+  const [roomMessage, setRoomMessage] = useState<string | null>(null);
+
+  const handleCreate = useCallback(async () => {
+    if (hasOwnRoom) return setRoomMessage("Vous avez déjà une salle ouverte");
+    setRoomLoading(true);
+    setRoomMessage(null);
+    try {
+      const id = await createMatch(myNick ?? "guest");
+      setRoomMessage("Salle créée: " + id);
+      await refreshRooms();
+    } catch (e: any) {
+      setRoomMessage("Erreur création : " + (e?.message ?? "server"));
+    } finally {
+      setRoomLoading(false);
+    }
+  }, [hasOwnRoom, myNick, refreshRooms]);
+
+  const handleJoin = useCallback(
+    async (roomId?: string) => {
+      if (hasOwnRoom) return setRoomMessage("Vous avez déjà une salle ouverte");
+      setRoomLoading(true);
+      setRoomMessage(null);
       try {
-        const res = await fetch("/api/match/list");
-        const body = await res.json().catch(() => ({}));
-        const raw: Room[] = body?.matches ?? body?.list ?? body?.rooms ?? body?.data ?? [];
-        const parsed = (raw || []).map((r) => {
-          const players = parsePlayersField(r);
-          return {
-            id: (r as any).id ?? (r as any).matchId ?? (r as any).match_id,
-            host: (r as any).host ?? (r as any).host_nickname ?? (r as any).owner ?? (r as any).name,
-            players,
-            status: (r as any).status ?? "open",
-          } as Room;
-        });
-        if (mounted) setRooms(parsed);
-      } catch (err) {
-        console.error("[MULTI] fetchRooms error", err);
-        if (mounted) setRooms([]);
+        const id = roomId ?? (await quickJoin());
+        const playerId = myNick ?? Math.random().toString(36).slice(2, 8);
+        await joinMatch(id, playerId);
+        setRoomMessage("Rejoint: " + id);
+        await refreshRooms();
+      } catch (e: any) {
+        setRoomMessage("Erreur join : " + (e?.message ?? "server"));
       } finally {
-        if (mounted) setRoomsLoading(false);
+        setRoomLoading(false);
       }
-    }
+    },
+    [hasOwnRoom, myNick, quickJoin, refreshRooms],
+  );
 
-    fetchRooms();
-    const iv = setInterval(fetchRooms, 4000); // refresh rooms frequently
-    return () => {
-      mounted = false;
-      clearInterval(iv);
-    };
-  }, []);
-
-  // Determine if current user already has a room (host or present in players)
-  const hasOwnRoom = (() => {
-    if (!myNick) return false;
-    return rooms.some((r) => {
-      const players = Array.isArray(r.players) ? (r.players as string[]) : [];
-      const host = (r.host ?? r.host_nickname ?? r.owner ?? r.name) as string | undefined;
-      return host === myNick || players.includes(myNick);
-    });
-  })();
-
-  async function refreshRooms() {
-    try {
-      const res = await fetch("/api/match/list");
-      const body = await res.json().catch(() => ({}));
-      const raw: Room[] = body?.matches ?? body?.list ?? body?.rooms ?? body?.data ?? [];
-      const parsed = (raw || []).map((r) => {
-        const players = parsePlayersField(r);
-        return {
-          id: (r as any).id ?? (r as any).matchId ?? (r as any).match_id,
-          host: (r as any).host ?? (r as any).host_nickname ?? (r as any).owner ?? (r as any).name,
-          players,
-          status: (r as any).status ?? "open",
-        } as Room;
-      });
-      setRooms(parsed);
-    } catch (err) {
-      console.error("[MULTI] refreshRooms error", err);
-    }
-  }
-
-  async function handleCreate() {
-    if (hasOwnRoom) {
-      setRoomMessage("Vous avez déjà une salle ouverte");
-      return;
-    }
-    setRoomLoading(true);
-    setRoomMessage(null);
-    try {
-      const name = myNick ?? "guest";
-      const res = await fetch("/api/match/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setRoomMessage("Erreur création : " + (body?.error ?? "server"));
-      } else {
-        const id = body?.matchId ?? body?.id ?? body?.match_id ?? "unknown";
-        setRoomMessage("Salle créée: " + id);
-        await refreshRooms();
-      }
-    } catch {
-      setRoomMessage("Erreur réseau");
-    } finally {
-      setRoomLoading(false);
-    }
-  }
-
-  async function handleJoinRoom(roomId: string) {
-    if (hasOwnRoom) {
-      setRoomMessage("Vous avez déjà une salle ouverte");
-      return;
-    }
-    setRoomLoading(true);
-    setRoomMessage(null);
-    try {
-      const playerId = myNick ?? Math.random().toString(36).slice(2, 8);
-      const res = await fetch("/api/match/join", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ matchId: roomId, playerId }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setRoomMessage("Erreur join : " + (body?.error ?? "server"));
-      } else {
-        setRoomMessage("Rejoint: " + (body?.state?.id ?? roomId));
-        await refreshRooms();
-      }
-    } catch {
-      setRoomMessage("Erreur réseau");
-    } finally {
-      setRoomLoading(false);
-    }
-  }
-
-  async function handleDeleteOwnRoom() {
-    if (!myNick) return;
-    const own = rooms.find((r) => {
-      const host = (r.host ?? r.host_nickname ?? r.owner ?? r.name) as string | undefined;
-      return host === myNick;
-    });
-    if (!own || !own.id) {
-      setRoomMessage("Aucune salle à supprimer");
-      return;
-    }
+  const handleDeleteOwn = useCallback(async () => {
     if (!confirm("Supprimer votre salle ?")) return;
     setRoomLoading(true);
     try {
-      // call existing API if available; adjust path/name if your server uses another route
-      const res = await fetch("/api/match/delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ matchId: own.id, playerId: myNick }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setRoomMessage("Erreur suppression : " + (body?.error ?? "server"));
-      } else {
-        setRoomMessage("Salle supprimée");
-        await refreshRooms();
-      }
-    } catch (e) {
-      setRoomMessage("Erreur réseau");
+      const ok = await leaveAndDeleteOwn();
+      setRoomMessage(ok ? "Salle supprimée" : "Aucune salle à supprimer");
+    } catch {
+      setRoomMessage("Erreur suppression");
     } finally {
       setRoomLoading(false);
     }
-  }
-
-  // filter visible rooms: open and not full
-  const visibleRooms = rooms.filter((r) => {
-    const players = Array.isArray(r.players) ? (r.players as string[]) : [];
-    const count = players.length;
-    return (r.status === "open" || !r.status) && count < MAX_PLAYERS;
-  });
+  }, [leaveAndDeleteOwn]);
 
   return (
     <GameShell>
@@ -264,11 +134,12 @@ export default function MultiplayerPage() {
             </div>
           </div>
 
-          {/* Controls (moved above table) */}
+          {/* Controls */}
           <div className="flex flex-col sm:flex-row gap-3 mb-4">
             <button
               onClick={handleCreate}
               disabled={roomLoading || hasOwnRoom}
+              aria-busy={roomLoading}
               className="px-4 py-2 rounded bg-indigo-500 text-white font-medium hover:bg-indigo-600 disabled:opacity-50"
             >
               {roomLoading ? "Chargement..." : "Créer une partie"}
@@ -277,10 +148,11 @@ export default function MultiplayerPage() {
             <button
               onClick={() => {
                 const first = visibleRooms[0];
-                if (first && first.id) handleJoinRoom(first.id as string);
+                if (first) handleJoin(first.id);
                 else setRoomMessage("Aucune salle ouverte pour rejoindre");
               }}
               disabled={roomLoading || hasOwnRoom || visibleRooms.length === 0}
+              aria-busy={roomLoading}
               className="px-4 py-2 rounded bg-emerald-500 text-black font-medium hover:bg-emerald-600 disabled:opacity-50"
             >
               {roomLoading ? "Chargement..." : "Rejoindre une partie"}
@@ -288,8 +160,9 @@ export default function MultiplayerPage() {
 
             {hasOwnRoom && (
               <button
-                onClick={handleDeleteOwnRoom}
+                onClick={handleDeleteOwn}
                 disabled={roomLoading}
+                aria-busy={roomLoading}
                 className="px-4 py-2 rounded bg-rose-600 text-white font-medium hover:bg-rose-700 disabled:opacity-50"
               >
                 Supprimer ma salle
@@ -319,24 +192,26 @@ export default function MultiplayerPage() {
                 <tbody>
                   {visibleRooms.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="py-4 text-slate-400">Aucune salle ouverte</td>
+                      <td colSpan={4} className="py-4 text-slate-400">
+                        Aucune salle ouverte
+                      </td>
                     </tr>
                   ) : (
                     visibleRooms.map((r) => {
-                      const players = Array.isArray(r.players) ? (r.players as string[]) : [];
-                      // Prefer explicit host field, fallback to first player (creator) if available
-                      const host =
-                        (r.host ?? r.host_nickname ?? r.owner ?? r.name) ||
-                        (players.length > 0 ? players[0] : "invité");
+                      const players = r.players;
+                      const host = r.host || (players[0] ?? "invité");
                       return (
-                        <tr key={r.id ?? Math.random().toString(36)} className="border-t border-slate-800">
+                        <tr key={r.id} className="border-t border-slate-800">
                           <td className="py-3">{host}</td>
-                          <td className="py-3">{players.length}/{MAX_PLAYERS}</td>
+                          <td className="py-3">
+                            {players.length}/{MAX_PLAYERS}
+                          </td>
                           <td className="py-3 font-mono">{r.id}</td>
                           <td className="py-3 text-right">
                             <button
-                              onClick={() => r.id && handleJoinRoom(r.id as string)}
-                              disabled={roomLoading || !r.id || hasOwnRoom}
+                              onClick={() => handleJoin(r.id)}
+                              disabled={roomLoading || hasOwnRoom}
+                              aria-busy={roomLoading}
                               className="px-3 py-1 rounded bg-emerald-500 text-black font-medium hover:bg-emerald-600 disabled:opacity-50"
                             >
                               {roomLoading ? "..." : "Rejoindre"}
@@ -353,7 +228,7 @@ export default function MultiplayerPage() {
 
           <section className="rounded-md border border-slate-800 p-4 bg-gradient-to-b from-slate-850 via-slate-900 to-slate-950">
             <p className="text-sm text-slate-400 mb-4">
-              Ici s&apos;affichera la liste des parties, l&apos;&eacute;tat des matchs et les contrôles de lobby.
+              Ici s&apos;affichera la liste des parties, l&apos;état des matchs et les contrôles de lobby.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -362,20 +237,16 @@ export default function MultiplayerPage() {
                 <p className="text-sm text-slate-400 mt-1">Rejoins un adversaire aléatoire ou choisi.</p>
                 <div className="mt-4">
                   <button
-                    onClick={() => {
-                      const first = visibleRooms[0];
-                      if (first && first.id) handleJoinRoom(first.id as string);
-                      else setRoomMessage("Aucune salle ouverte pour rejoindre");
-                    }}
+                    onClick={() =>
+                      handleJoin().catch(() => setRoomMessage("Aucune salle ouverte pour rejoindre"))
+                    }
                     disabled={roomLoading || hasOwnRoom}
                     className="px-3 py-2 rounded bg-emerald-500 text-black font-medium hover:bg-emerald-600 disabled:opacity-50"
                   >
                     {roomLoading ? "Chargement..." : "Rejoindre (auto)"}
                   </button>
                 </div>
-                {roomMessage && (
-                  <p className="text-sm text-slate-400 mt-2">{roomMessage}</p>
-                )}
+                {roomMessage && <p className="text-sm text-slate-400 mt-2">{roomMessage}</p>}
               </div>
 
               <div className="p-4 rounded-md bg-slate-800 border border-slate-700">
@@ -390,37 +261,33 @@ export default function MultiplayerPage() {
                     {roomLoading ? "Chargement..." : "Créer"}
                   </button>
                 </div>
-                {roomMessage && (
-                  <p className="text-sm text-slate-400 mt-2">{roomMessage}</p>
-                )}
+                {roomMessage && <p className="text-sm text-slate-400 mt-2">{roomMessage}</p>}
               </div>
             </div>
           </section>
         </main>
 
-        {/* Sidebar leaderboard styled like game page */}
+        {/* Sidebar leaderboard */}
         <aside className="order-1 lg:order-1 lg:w-72 xl:w-80 shrink-0">
           <div className="bg-slate-900 text-slate-100 rounded-lg shadow-lg p-4 border border-slate-800">
             <div className="flex items-start justify-between mb-3">
               <div>
                 <h2 className="text-lg font-semibold">Classement Multijoueur</h2>
-                <p className="text-xs text-slate-400">
-                  Joueurs avec le plus de points (ranking multi).
-                </p>
+                <p className="text-xs text-slate-400">Joueurs avec le plus de points (ranking multi).</p>
               </div>
 
               <button
-                onClick={() => {
-                  setLoading(true);
-                  setLeaderboard([]);
-                  fetch("/api/scoreboard")
-                    .then((r) => r.json())
-                    .then((b) => {
-                      const list = b?.top ?? b?.leaderboard ?? [];
-                      setLeaderboard(list);
-                    })
-                    .catch(() => setError("Erreur de chargement"))
-                    .finally(() => setLoading(false));
+                onClick={async () => {
+                  try {
+                    setLbLoading(true);
+                    const list = await fetchLeaderboard();
+                    setLeaderboard(list);
+                    setLbError(null);
+                  } catch {
+                    setLbError("Erreur de chargement");
+                  } finally {
+                    setLbLoading(false);
+                  }
                 }}
                 className="text-sm text-slate-400 hover:text-slate-200"
                 aria-label="Rafraîchir"
@@ -431,14 +298,14 @@ export default function MultiplayerPage() {
 
             <div className="h-px bg-slate-800 my-2" />
 
-            {loading ? (
+            {lbLoading ? (
               <div className="space-y-2">
                 {[1, 2, 3, 4, 5].map((i) => (
                   <div key={i} className="h-8 bg-slate-800 rounded animate-pulse" />
                 ))}
               </div>
-            ) : error ? (
-              <div className="text-sm text-rose-400">{error}</div>
+            ) : lbError ? (
+              <div className="text-sm text-rose-400">{lbError}</div>
             ) : leaderboard.length === 0 ? (
               <div className="text-sm text-slate-400">Aucun score disponible</div>
             ) : (
@@ -452,9 +319,7 @@ export default function MultiplayerPage() {
                       <div className="w-8 text-center font-medium text-slate-200">{i + 1}</div>
                       <div className="text-sm font-medium text-slate-100">{p.nickname}</div>
                     </div>
-                    <div className="text-sm font-mono text-slate-200">
-                      {p.points ?? 0}
-                    </div>
+                    <div className="text-sm font-mono text-slate-200">{p.points ?? 0}</div>
                   </li>
                 ))}
               </ol>
