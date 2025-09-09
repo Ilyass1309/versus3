@@ -3,7 +3,6 @@ import React from "react";
 import type { Room } from "@/types/lobby";
 
 type Props = {
-  myNick: string | null;
   hasOwnRoom: boolean;
   roomLoading: boolean;
   visibleRooms: Room[];
@@ -13,7 +12,7 @@ type Props = {
   message?: string | null;
 };
 
-export const LobbyControls: React.FC<Props> = ({ myNick, hasOwnRoom, roomLoading, visibleRooms, onCreate, onQuickJoin, onDeleteOwn, message }) => {
+export const LobbyControls: React.FC<Props> = ({ hasOwnRoom, roomLoading, visibleRooms, onCreate, onQuickJoin, onDeleteOwn, message }) => {
   return (
     <div>
       <div className="flex flex-col sm:flex-row gap-3 mb-4">

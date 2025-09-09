@@ -8,30 +8,24 @@ import { RoomsTable } from "@/app/components/multiplayer/RoomsTable";
 import { LobbyControls } from "@/app/components/multiplayer/LobbyControls";
 import { Leaderboard } from "@/app/components/multiplayer/Leaderboard";
 import { useLeaderboard } from "@/hooks/useLeaderboard";
+import type { Room } from "@/types/lobby";
 
 export default function MultiplayerPage() {
   const router = useRouter();
   const [myNick, setMyNick] = useState<string | null>(null);
   useEffect(() => {
-    if (typeof window !== "undefined")
-      setMyNick(localStorage.getItem("nickname"));
+    if (typeof window !== "undefined") setMyNick(localStorage.getItem("nickname"));
   }, []);
 
   const {
     rooms,
     loading: roomsLoading,
     hasOwnRoom,
-    visibleRooms,
     refreshRooms,
     quickJoin,
     MAX_PLAYERS,
   } = useLobby(myNick);
-  const {
-    leaderboard,
-    loading: lbLoading,
-    error: lbError,
-    refresh: refreshLeaderboard,
-  } = useLeaderboard();
+  const { leaderboard, loading: lbLoading, error: lbError, refresh: refreshLeaderboard } = useLeaderboard();
 
   const [roomLoading, setRoomLoading] = useState(false);
   const [roomMessage, setRoomMessage] = useState<string | null>(null);
@@ -45,9 +39,7 @@ export default function MultiplayerPage() {
       setRoomMessage("Salle créée: " + id);
       await refreshRooms();
     } catch (e) {
-      setRoomMessage(
-        "Erreur création : " + (e instanceof Error ? e.message : "server"),
-      );
+      setRoomMessage("Erreur création : " + (e instanceof Error ? e.message : "server"));
     } finally {
       setRoomLoading(false);
     }
@@ -77,19 +69,28 @@ export default function MultiplayerPage() {
     [hasOwnRoom, myNick, quickJoin, refreshRooms, router],
   );
 
+  // normalize rooms coming from useLobby (types differ between hook and types/lobby)
+  const normalizedRooms = useMemo(() => {
+    return (rooms as any[])
+      .map((r: any) => ({
+        id: String(r.id ?? r.matchId ?? r.match_id ?? ""),
+        host: String(r.host ?? r.owner ?? (r.players?.[0] ?? "invité")),
+        players: Array.isArray(r.players) ? r.players.map(String) : [],
+        status: String(r.status ?? "open"),
+      }))
+      .filter((r) => r.id.length > 0);
+  }, [rooms]);
+
   const handleDeleteOwn = useCallback(async () => {
     if (!confirm("Supprimer votre salle ?")) return;
     setRoomLoading(true);
     setRoomMessage(null);
     try {
-      // determine own room reliably from local rooms state
-      const own = rooms.find((r: any) => r.host === myNick || (r.players ?? []).includes(myNick ?? ""));
+      const own = normalizedRooms.find((r) => r.host === (myNick ?? "") || r.players.includes(myNick ?? ""));
       if (!own?.id) {
         setRoomMessage("Aucune salle à supprimer");
         return;
       }
-
-      // call API directly and refresh list
       await deleteMatch(String(own.id), myNick ?? "");
       setRoomMessage("Salle supprimée");
       await refreshRooms();
@@ -98,10 +99,7 @@ export default function MultiplayerPage() {
     } finally {
       setRoomLoading(false);
     }
-  }, [rooms, myNick, refreshRooms]);
-
-  // normalize rooms ids to string to avoid typing mismatch in components
-  const normalizedRooms = useMemo(() => rooms.map((r: any) => ({ ...r, id: String(r.id) })), [rooms]);
+  }, [normalizedRooms, myNick, refreshRooms]);
 
   return (
     <GameShell>
@@ -110,9 +108,7 @@ export default function MultiplayerPage() {
           <div className="flex items-start justify-between gap-4 mb-6">
             <div>
               <h1 className="text-2xl font-semibold">Salle Multijoueur</h1>
-              <p className="text-sm text-slate-400 mt-1">
-                Rejoins ou crée une partie pour affronter d&apos;autres joueurs.
-              </p>
+              <p className="text-sm text-slate-400 mt-1">Rejoins ou crée une partie pour affronter d&apos;autres joueurs.</p>
             </div>
 
             {/* Return button */}
@@ -128,7 +124,6 @@ export default function MultiplayerPage() {
           </div>
 
           <LobbyControls
-            myNick={myNick}
             hasOwnRoom={hasOwnRoom}
             roomLoading={roomLoading}
             visibleRooms={normalizedRooms}
@@ -150,12 +145,7 @@ export default function MultiplayerPage() {
 
         {/* Sidebar leaderboard */}
         <aside className="order-1 lg:order-1 lg:w-72 xl:w-80 shrink-0">
-          <Leaderboard
-            leaderboard={leaderboard}
-            loading={lbLoading}
-            error={lbError}
-            onRefresh={refreshLeaderboard}
-          />
+          <Leaderboard leaderboard={leaderboard} loading={lbLoading} error={lbError} onRefresh={refreshLeaderboard} />
         </aside>
       </div>
     </GameShell>
