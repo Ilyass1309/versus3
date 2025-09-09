@@ -105,7 +105,7 @@ export function GameHeader({ rulesOpen, onRulesOpenChange }: GameHeaderProps) {
           {/* Auth */}
           {!user && (
             <a
-              href="/auth/login"
+              href="/nickname"
               className="text-xs font-medium px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15"
             >
               Se connecter

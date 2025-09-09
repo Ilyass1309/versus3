@@ -9,8 +9,8 @@ export default function LoginPage() {
   const { setAuth, setUser } = usePlayer();
   const [nickname, setNickname] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loading] = useState(false);
+  const [error] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
