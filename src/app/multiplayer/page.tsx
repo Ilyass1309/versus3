@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { GameShell } from "@/app/components/game/GameShell";
 import { useLobby } from "@/hooks/useLobby";
-import { createMatch, fetchLeaderboard, joinMatch } from "@/lib/lobbyApi";
+import { createMatch, fetchLeaderboard, joinMatch, deleteMatch } from "@/lib/lobbyApi";
 import type { ScoreRow } from "@/types/lobby";
 
 export default function MultiplayerPage() {
@@ -101,11 +101,21 @@ export default function MultiplayerPage() {
   const handleDeleteOwn = useCallback(async () => {
     if (!confirm("Supprimer votre salle ?")) return;
     setRoomLoading(true);
+    setRoomMessage(null);
     try {
-      const ok = await leaveAndDeleteOwn();
-      setRoomMessage(ok ? "Salle supprimée" : "Aucune salle à supprimer");
-    } catch {
-      setRoomMessage("Erreur suppression");
+      // determine own room reliably from local rooms state
+      const own = rooms.find((r) => r.host === myNick || r.players.includes(myNick ?? ""));
+      if (!own || !own.id) {
+        setRoomMessage("Aucune salle à supprimer");
+        return;
+      }
+
+      // call API directly and refresh list
+      await deleteMatch(own.id, myNick ?? "");
+      setRoomMessage("Salle supprimée");
+      await refreshRooms();
+    } catch (err: unknown) {
+      setRoomMessage("Erreur suppression: " + (err instanceof Error ? err.message : "server"));
     } finally {
       setRoomLoading(false);
     }
