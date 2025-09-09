@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { registerUser, createSession } from "@/lib/db";
+import { sql } from "@/lib/pg";
 
 export const runtime = "nodejs";
 
@@ -31,6 +32,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "weak_password" }, { status: 400 });
     }
 
+    // verify nickname does not already exist to avoid ON CONFLICT DB error
+    try {
+      const check = await sql`SELECT id FROM users WHERE nickname = ${nickname} LIMIT 1`;
+      if (check.rowCount && check.rowCount > 0) {
+        console.warn("[REGISTER] nickname taken:", nickname);
+        return NextResponse.json({ error: "nickname_taken" }, { status: 409 });
+      }
+    } catch (chkErr) {
+      console.error("[REGISTER] check nickname error", chkErr);
+      // continue - we'll attempt register and handle DB error below
+    }
+
     console.log("[REGISTER] calling registerUser");
     const user = await registerUser(nickname, password);
     console.log("[REGISTER] registerUser ->", { id: user.id, nickname: user.nickname });
@@ -44,14 +57,17 @@ export async function POST(req: Request) {
       setSessionCookie(res, token, expires);
     } catch (cookieErr) {
       console.error("[REGISTER] cookie set failed:", cookieErr);
-      // continue: return error to client so you can see cookie problem
       return NextResponse.json({ error: "cookie_error", message: String(cookieErr) }, { status: 500 });
     }
 
     return res;
   } catch (err: unknown) {
     console.error("[REGISTER ERROR]", err);
-    // DEBUG: retourner message d'erreur pour diagnosis (supprimer en prod)
+    // map Postgres duplicate-key error to user-friendly response
+    const code = (err as any)?.code ?? (err as any)?.pgCode;
+    if (code === "23505") {
+      return NextResponse.json({ error: "nickname_taken" }, { status: 409 });
+    }
     const message = err instanceof Error ? err.message : String(err);
     if (message === "nickname_taken") {
       return NextResponse.json({ error: "nickname_taken" }, { status: 409 });
