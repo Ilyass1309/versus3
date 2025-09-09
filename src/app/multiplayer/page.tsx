@@ -20,6 +20,23 @@ type Room = {
   [key: string]: unknown;
 };
 
+// helper: safely parse players field without any
+function parsePlayersField(obj: unknown): string[] {
+  if (!obj || typeof obj !== "object") return [];
+  const o = obj as Record<string, unknown>;
+  const raw = o.players ?? o.players_list ?? o.playersArray ?? [];
+  if (Array.isArray(raw)) return raw.map((v) => String(v));
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed.map((v) => String(v));
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 export default function MultiplayerPage() {
   const router = useRouter();
   const [leaderboard, setLeaderboard] = useState<ScoreRow[]>([]);
@@ -70,19 +87,12 @@ export default function MultiplayerPage() {
         const body = await res.json().catch(() => ({}));
         const raw: Room[] = body?.matches ?? body?.list ?? body?.rooms ?? body?.data ?? [];
         const parsed = (raw || []).map((r) => {
-          let players = (r as any).players ?? (r as any).players_list ?? (r as any).playersArray ?? [];
-          if (typeof players === "string") {
-            try {
-              players = JSON.parse(players);
-            } catch {
-              players = [];
-            }
-          }
+          const players = parsePlayersField(r);
           return {
-            id: r.id ?? r.matchId ?? r.match_id,
-            host: r.host ?? r.host_nickname ?? r.owner ?? r.name,
+            id: (r as any).id ?? (r as any).matchId ?? (r as any).match_id,
+            host: (r as any).host ?? (r as any).host_nickname ?? (r as any).owner ?? (r as any).name,
             players,
-            status: r.status ?? "open",
+            status: (r as any).status ?? "open",
           } as Room;
         });
         if (mounted) setRooms(parsed);
@@ -118,19 +128,12 @@ export default function MultiplayerPage() {
       const body = await res.json().catch(() => ({}));
       const raw: Room[] = body?.matches ?? body?.list ?? body?.rooms ?? body?.data ?? [];
       const parsed = (raw || []).map((r) => {
-        let players = (r as any).players ?? (r as any).players_list ?? (r as any).playersArray ?? [];
-        if (typeof players === "string") {
-          try {
-            players = JSON.parse(players);
-          } catch {
-            players = [];
-          }
-        }
+        const players = parsePlayersField(r);
         return {
-          id: r.id ?? r.matchId ?? r.match_id,
-          host: r.host ?? r.host_nickname ?? r.owner ?? r.name,
+          id: (r as any).id ?? (r as any).matchId ?? (r as any).match_id,
+          host: (r as any).host ?? (r as any).host_nickname ?? (r as any).owner ?? (r as any).name,
           players,
-          status: r.status ?? "open",
+          status: (r as any).status ?? "open",
         } as Room;
       });
       setRooms(parsed);
