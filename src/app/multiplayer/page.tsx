@@ -141,7 +141,7 @@ export default function MultiplayerPage() {
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-rose-500 text-white font-semibold shadow-md hover:bg-rose-600 focus:outline-none focus:ring-2 focus:ring-rose-400"
                 aria-label="Retour au jeu"
               >
-                ← Retour au jeu
+                Accueil
               </button>
             </div>
           </div>
