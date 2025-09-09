@@ -8,7 +8,7 @@ import { RoomsTable } from "@/app/components/multiplayer/RoomsTable";
 import { LobbyControls } from "@/app/components/multiplayer/LobbyControls";
 import { Leaderboard } from "@/app/components/multiplayer/Leaderboard";
 import { useLeaderboard } from "@/hooks/useLeaderboard";
-import type { Room } from "@/types/lobby";
+import type { Room as LobbyRoom } from "@/types/lobby";
 
 export default function MultiplayerPage() {
   const router = useRouter();
@@ -69,16 +69,30 @@ export default function MultiplayerPage() {
     [hasOwnRoom, myNick, quickJoin, refreshRooms, router],
   );
 
-  // normalize rooms coming from useLobby (types differ between hook and types/lobby)
+  // normalize rooms coming from useLobby (types may differ between hook and types/lobby)
+  function normalizeRoom(raw: unknown): LobbyRoom | null {
+    if (!raw || typeof raw !== "object") return null;
+    const obj = raw as Record<string, unknown>;
+
+    const idRaw = obj.id ?? obj.matchId ?? obj.match_id;
+    const id = typeof idRaw === "string" || typeof idRaw === "number" ? String(idRaw) : "";
+    if (!id) return null;
+
+    const playersRaw = obj.players;
+    const players = Array.isArray(playersRaw)
+      ? playersRaw.filter((p) => typeof p === "string" || typeof p === "number").map(String)
+      : [];
+
+    const hostRaw = obj.host ?? obj.owner ?? players[0];
+    const host = typeof hostRaw === "string" ? hostRaw : String(hostRaw ?? "invité");
+
+    const status = typeof obj.status === "string" ? obj.status : String(obj.status ?? "open");
+
+    return { id, host, players, status };
+  }
+
   const normalizedRooms = useMemo(() => {
-    return (rooms as any[])
-      .map((r: any) => ({
-        id: String(r.id ?? r.matchId ?? r.match_id ?? ""),
-        host: String(r.host ?? r.owner ?? (r.players?.[0] ?? "invité")),
-        players: Array.isArray(r.players) ? r.players.map(String) : [],
-        status: String(r.status ?? "open"),
-      }))
-      .filter((r) => r.id.length > 0);
+    return (Array.isArray(rooms) ? rooms : []).map(normalizeRoom).filter((r): r is LobbyRoom => r !== null);
   }, [rooms]);
 
   const handleDeleteOwn = useCallback(async () => {
