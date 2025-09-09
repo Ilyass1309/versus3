@@ -1,6 +1,8 @@
 "use client";
+
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { getPusher } from "@/lib/pusher-client";
 import { usePusherMatch } from "@/hooks/usePusherMatch";
 
 type ActionName = "Attaquer" | "Défendre" | "Charger";
@@ -228,6 +230,62 @@ export default function MatchRoomPage() {
   function leave() {
     router.push("/multiplayer");
   }
+
+  // redirect the creator when another player joins / when match starts
+  useEffect(() => {
+    if (!id) return;
+    const channelName = `match:${id}`;
+    let channel: any = null;
+    let pusher: any = null;
+    try {
+      pusher = getPusher();
+      channel = pusher.channel(channelName) ?? pusher.subscribe(channelName);
+    } catch (e) {
+      try {
+        pusher = getPusher();
+        channel = pusher.subscribe(channelName);
+      } catch {
+        pusher = null;
+        channel = null;
+      }
+    }
+
+    const onJoined = (payload: unknown) => {
+      // accept different payload shapes safely
+      if (!payload || typeof payload !== "object") {
+        router.push(`/multiplayer/${id}`);
+        return;
+      }
+      const p = payload as Record<string, unknown>;
+      const idMatch =
+        typeof p.matchId === "string"
+          ? p.matchId === id
+          : typeof p.id === "string"
+          ? p.id === id
+          : true;
+      // if payload refers to this match (or payload shape unknown) -> redirect
+      if (idMatch) {
+        router.push(`/multiplayer/${id}`);
+      }
+    };
+
+    if (channel) {
+      channel.bind("player_joined", onJoined);
+      channel.bind("match_started", onJoined);
+    }
+
+    return () => {
+      try {
+        if (channel) {
+          channel.unbind("player_joined", onJoined);
+          channel.unbind("match_started", onJoined);
+        }
+        if (pusher) {
+          try { pusher.unsubscribe(channelName); } catch {}
+        }
+      } catch {}
+    };
+  }, [id, router]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100">
