@@ -8,7 +8,10 @@ import { RoomsTable } from "@/app/components/multiplayer/RoomsTable";
 import { LobbyControls } from "@/app/components/multiplayer/LobbyControls";
 import { Leaderboard } from "@/app/components/multiplayer/Leaderboard";
 import { useLeaderboard } from "@/hooks/useLeaderboard";
+import { getPusher } from "@/lib/pusher-client";
 import type { Room as LobbyRoom } from "@/types/lobby";
+type PusherLike = { channel?: (n: string) => ChannelLike | null; subscribe?: (n: string) => ChannelLike; unsubscribe?: (n: string) => void; connection?: { state?: string; bind?: (ev: string, cb: () => void) => void } };
+type ChannelLike = { bind: (e: string, cb: (p?: unknown) => void) => void; unbind: (e: string, cb: (p?: unknown) => void) => void };
 
 export default function MultiplayerPage() {
   const router = useRouter();
@@ -94,6 +97,49 @@ export default function MultiplayerPage() {
   const normalizedRooms = useMemo(() => {
     return (Array.isArray(rooms) ? rooms : []).map(normalizeRoom).filter((r): r is LobbyRoom => r !== null);
   }, [rooms]);
+
+  // Redirect creator from lobby to match page when someone joins their room
+  useEffect(() => {
+    // find own room id
+    const own = normalizedRooms.find((r) => r.host === (myNick ?? "") || r.players.includes(myNick ?? ""));
+    if (!own?.id) return;
+
+    const channelName = `match:${own.id}`;
+    let pusher: PusherLike | null = null;
+    let channel: ChannelLike | null = null;
+
+    try {
+      pusher = getPusher() as PusherLike;
+      channel = (pusher.channel ? pusher.channel(channelName) : null) ?? (pusher.subscribe ? pusher.subscribe(channelName) : null);
+    } catch {
+      pusher = null;
+      channel = null;
+    }
+
+    const onJoined = (payload: unknown) => {
+      // any player_joined / match_started event for this channel should redirect creator
+      try {
+        router.push(`/multiplayer/${own.id}`);
+      } catch {}
+    };
+
+    if (channel) {
+      channel.bind("player_joined", onJoined);
+      channel.bind("match_started", onJoined);
+    }
+
+    return () => {
+      try {
+        if (channel) {
+          channel.unbind("player_joined", onJoined);
+          channel.unbind("match_started", onJoined);
+        }
+        if (pusher) {
+          try { pusher.unsubscribe?.(channelName); } catch {}
+        }
+      } catch {}
+    };
+  }, [normalizedRooms, myNick, router]);
 
   const handleDeleteOwn = useCallback(async () => {
     if (!confirm("Supprimer votre salle ?")) return;
