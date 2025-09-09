@@ -63,8 +63,13 @@ export async function POST(req: Request) {
     return res;
   } catch (err: unknown) {
     console.error("[REGISTER ERROR]", err);
-    // map Postgres duplicate-key error to user-friendly response
-    const code = (err as any)?.code ?? (err as any)?.pgCode;
+    // map Postgres duplicate-key error to user-friendly response without using `any`
+    let code: string | undefined;
+    if (err && typeof err === "object") {
+      const e = err as Record<string, unknown>;
+      if (typeof e.code === "string") code = e.code;
+      else if (typeof e.pgCode === "string") code = e.pgCode;
+    }
     if (code === "23505") {
       return NextResponse.json({ error: "nickname_taken" }, { status: 409 });
     }
