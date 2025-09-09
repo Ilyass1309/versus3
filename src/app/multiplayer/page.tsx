@@ -87,7 +87,11 @@ export default function MultiplayerPage() {
         const id = roomId ?? (await quickJoin());
         const playerId = myNick ?? Math.random().toString(36).slice(2, 8);
         await joinMatch(id, playerId);
-        setRoomMessage("Rejoint: " + id);
+
+        // redirect the user to the room page after a successful join
+        router.push(`/multiplayer/${id}`);
+
+        // still refresh lobby list as a best-effort
         await refreshRooms();
       } catch (e: unknown) {
         setRoomMessage("Erreur join : " + (e instanceof Error ? e.message : "server"));
@@ -95,7 +99,7 @@ export default function MultiplayerPage() {
         setRoomLoading(false);
       }
     },
-    [hasOwnRoom, myNick, quickJoin, refreshRooms],
+    [hasOwnRoom, myNick, quickJoin, refreshRooms, router],
   );
 
   const handleDeleteOwn = useCallback(async () => {
