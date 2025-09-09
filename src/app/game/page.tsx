@@ -6,7 +6,7 @@ import { Arena } from "@/app/components/game/Arena";
 import { ActionBar } from "@/app/components/game/ActionBar";
 import { BattleLog } from "@/app/components/game/BattleLog";
 import { ResultDialog } from "@/app/components/game/ResultDialog";
-import { Scoreboard } from "@/app/components/game/Scoreboard";
+import { Scoreboard } from "@/app/components/game/LeaderBoardPlayerVsAI";
 
 const RULES_FLAG_KEY = "rulesSeen_v1";
 

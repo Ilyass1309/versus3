@@ -15,7 +15,7 @@ export function Scoreboard() {
   async function load() {
     try {
       setLoading(true);
-      const res = await fetch("/api/scoreboard", { cache: "no-store" });
+      const res = await fetch("/api/leaderboard", { cache: "no-store" });
       if (res.ok) {
         const json = await res.json();
         setData(json.top || []);
