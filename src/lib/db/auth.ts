@@ -1,6 +1,5 @@
 import bcrypt from "bcryptjs";
 import { sql } from "./sql";
-import { ensurePlayerScoresTable } from "./scores"; // si tu réutilises l'alias côté score
 
 export interface User {
   id: number;

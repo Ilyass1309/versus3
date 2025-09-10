@@ -20,11 +20,24 @@ export function Scoreboard() {
         const json = await res.json();
         // support different response shapes from the API
         const raw = json.top ?? json.leaderboard ?? json.data ?? [];
+
+        // safe parser instead of `any`
+        function parseEntry(item: unknown): Entry | null {
+          if (!item || typeof item !== "object") return null;
+          const o = item as Record<string, unknown>;
+          const nickname = String(o.nickname ?? o.name ?? "");
+          const wins =
+            typeof o.wins === "number"
+              ? o.wins
+              : typeof o.points === "number"
+              ? o.points
+              : 0;
+          if (!nickname) return null;
+          return { nickname, wins };
+        }
+
         const list = Array.isArray(raw)
-          ? raw.map((e: any) => ({
-              nickname: String(e.nickname ?? e.name ?? ""),
-              wins: typeof e.wins === "number" ? e.wins : typeof e.points === "number" ? e.points : 0,
-            }))
+          ? raw.map(parseEntry).filter((x): x is Entry => x !== null)
           : [];
         setData(list);
       }
