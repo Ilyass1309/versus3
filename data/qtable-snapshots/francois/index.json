@@ -1,17 +1,5 @@
 [
   {
-    "episode": 5270000,
-    "timestamp": 1757077790535,
-    "coveragePct": 55.457,
-    "states": 16341,
-    "minVisits": 1,
-    "maxVisits": 7010000,
-    "avgVisits": 9290.78,
-    "epsilon": 0.6412,
-    "full": false,
-    "qCountStored": 3000
-  },
-  {
     "episode": 5320000,
     "timestamp": 1757078031060,
     "coveragePct": 55.797,
@@ -2398,5 +2386,17 @@
     "epsilon": 0.5,
     "full": true,
     "qCountStored": 20496
+  },
+  {
+    "episode": 21680000,
+    "timestamp": 1757495345088,
+    "coveragePct": 69.575,
+    "states": 20501,
+    "minVisits": 1,
+    "maxVisits": 23420000,
+    "avgVisits": 25162.78,
+    "epsilon": 0.5,
+    "full": true,
+    "qCountStored": 20501
   }
 ]

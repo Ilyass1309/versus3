@@ -5,23 +5,15 @@ import { useGame } from "./GameShell";
 import { Dialog, DialogContent } from "@/app/components/ui/dialog";
 import { Button } from "@/app/components/ui/Button";
 
-export default function ResultDialog(props: any) {
+export default function ResultDialog() {
   const { engine } = useGame();
   const { result } = engine;
   const [open, setOpen] = useState(false);
 
+  // keep hook order stable: declare all hooks before any conditional return
   useEffect(() => {
     setOpen(engine.isOver);
   }, [engine.isOver]);
-
-  if (!result) return null;
-
-  const title =
-    result.outcome === "win"
-      ? "Victory!"
-      : result.outcome === "lose"
-      ? "Defeat"
-      : "Draw";
 
   // secure: tell server to record a win using session (server must deduce user from cookie)
   async function reportWinToServer() {
@@ -33,17 +25,27 @@ export default function ResultDialog(props: any) {
       });
     } catch (err) {
       // best-effort, don't block UI
+      // eslint-disable-next-line no-console
       console.warn("reportWin failed", err);
     }
   }
 
+  // run when result becomes available — do not rely on props, use engine.result
   useEffect(() => {
-    // ...existing code that computes result...
-    // replace any insecure client-side increment call by a call to reportWinToServer()
-    if (props.result?.winner === "player") {
+    if (!result) return;
+    if (result.outcome === "win") {
       void reportWinToServer();
     }
-  }, [props.result]);
+  }, [result]);
+
+  if (!result) return null;
+
+  const title =
+    result.outcome === "win"
+      ? "Victory!"
+      : result.outcome === "lose"
+      ? "Defeat"
+      : "Draw";
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
