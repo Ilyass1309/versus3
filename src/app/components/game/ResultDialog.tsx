@@ -15,29 +15,6 @@ export default function ResultDialog() {
     setOpen(engine.isOver);
   }, [engine.isOver]);
 
-  // secure: tell server to record a win using session (server must deduce user from cookie)
-  async function reportWinToServer() {
-    try {
-      await fetch("/api/game/record-win", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-      });
-    } catch (err) {
-      // best-effort, don't block UI
-      // eslint-disable-next-line no-console
-      console.warn("reportWin failed", err);
-    }
-  }
-
-  // run when result becomes available — do not rely on props, use engine.result
-  useEffect(() => {
-    if (!result) return;
-    if (result.outcome === "win") {
-      void reportWinToServer();
-    }
-  }, [result]);
-
   if (!result) return null;
 
   const title =
