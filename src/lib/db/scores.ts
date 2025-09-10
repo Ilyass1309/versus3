@@ -51,15 +51,37 @@ export async function getTopPlayers(limit = 10) {
 
 /** Bonus: incrément sécurisé côté serveur pour un user authentifié */
 export async function incrementAuthedPlayerWin(userId: number) {
+  // log entry
+  // eslint-disable-next-line no-console
+  console.log("[scores] incrementAuthedPlayerWin called for userId:", userId);
+
   await ensurePlayerScoresTable();
+
   const rows = await sql<{ nickname: string }>`SELECT nickname FROM users WHERE id=${userId}`;
   const row = rows[0];
-  if (!row) return;
+
+  // log select result
+  // eslint-disable-next-line no-console
+  console.log("[scores] SELECT nickname result:", row ?? null);
+
+  if (!row) {
+    // eslint-disable-next-line no-console
+    console.warn("[scores] No user found for id:", userId);
+    return;
+  }
+
+  const nickname = row.nickname;
+  // eslint-disable-next-line no-console
+  console.log("[scores] will increment for nickname:", nickname);
+
   await sql`
     INSERT INTO player_scores (nickname, wins)
-    VALUES (${row.nickname}, 1)
+    VALUES (${nickname}, 1)
     ON CONFLICT (nickname)
     DO UPDATE SET wins = player_scores.wins + 1,
                   updated_at = NOW()
   `;
+
+  // eslint-disable-next-line no-console
+  console.log("[scores] increment completed for nickname:", nickname);
 }
