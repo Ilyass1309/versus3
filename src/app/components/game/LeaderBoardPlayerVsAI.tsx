@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { usePlayer } from "@/app/providers/PlayerProvider";
+import { fetchLeaderboardEntries } from "@/lib/leaderboard-client";
 
 interface Entry {
   nickname: string;
@@ -15,32 +16,8 @@ export function Scoreboard() {
   async function load() {
     try {
       setLoading(true);
-      const res = await fetch("/api/leaderboard", { cache: "no-store" });
-      if (res.ok) {
-        const json = await res.json();
-        // support different response shapes from the API
-        const raw = json.top ?? json.leaderboard ?? json.data ?? [];
-
-        // safe parser instead of `any`
-        function parseEntry(item: unknown): Entry | null {
-          if (!item || typeof item !== "object") return null;
-          const o = item as Record<string, unknown>;
-          const nickname = String(o.nickname ?? o.name ?? "");
-          const wins =
-            typeof o.wins === "number"
-              ? o.wins
-              : typeof o.points === "number"
-              ? o.points
-              : 0;
-          if (!nickname) return null;
-          return { nickname, wins };
-        }
-
-        const list = Array.isArray(raw)
-          ? raw.map(parseEntry).filter((x): x is Entry => x !== null)
-          : [];
-        setData(list);
-      }
+      const list = await fetchLeaderboardEntries();
+      setData(list);
     } finally {
       setLoading(false);
     }
