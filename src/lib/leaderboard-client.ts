@@ -29,3 +29,25 @@ export async function fetchLeaderboardEntries(): Promise<LeaderboardEntry[]> {
     return [];
   }
 }
+
+export async function reportWinToServer(): Promise<boolean> {
+  try {
+    const res = await fetch("/api/score", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (res.ok) {
+      try {
+        // notify clients to refresh leaderboard
+        window?.dispatchEvent(new CustomEvent("leaderboard:update"));
+      } catch {}
+      return true;
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}

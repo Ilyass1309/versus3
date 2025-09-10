@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useGame } from "./GameShell";
 import { Dialog, DialogContent } from "@/app/components/ui/dialog";
 import { Button } from "@/app/components/ui/Button";
+import { reportWinToServer } from "@/lib/leaderboard-client";
 
 export default function ResultDialog() {
   const { engine } = useGame();
@@ -23,6 +24,14 @@ export default function ResultDialog() {
       : result.outcome === "lose"
       ? "Defeat"
       : "Draw";
+
+  // call the helper in lib (keeps fetch logic out of TSX)
+  useEffect(() => {
+    if (!result) return;
+    if (result.outcome === "win") {
+      void reportWinToServer();
+    }
+  }, [result]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
