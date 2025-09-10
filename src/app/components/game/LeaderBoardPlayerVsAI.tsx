@@ -18,7 +18,15 @@ export function Scoreboard() {
       const res = await fetch("/api/leaderboard", { cache: "no-store" });
       if (res.ok) {
         const json = await res.json();
-        setData(json.top || []);
+        // support different response shapes from the API
+        const raw = json.top ?? json.leaderboard ?? json.data ?? [];
+        const list = Array.isArray(raw)
+          ? raw.map((e: any) => ({
+              nickname: String(e.nickname ?? e.name ?? ""),
+              wins: typeof e.wins === "number" ? e.wins : typeof e.points === "number" ? e.points : 0,
+            }))
+          : [];
+        setData(list);
       }
     } finally {
       setLoading(false);
