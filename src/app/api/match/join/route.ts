@@ -7,18 +7,46 @@ export const runtime = "nodejs";
 export const preferredRegion = ["fra1"];
 
 export async function POST(req: NextRequest) {
-  const { matchId, playerId } = await req.json();
+  const body = await req.json();
+  const { matchId, playerId, name } = body as { matchId: string; playerId?: string; name?: string };
+
+  // basic request log (no sensitive data)
+  // eslint-disable-next-line no-console
+  console.log("[match/join] incoming", { matchId, playerId: Boolean(playerId), name });
 
   const m = await getMatch(matchId);
-  if (!m) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  if (!m) {
+    // eslint-disable-next-line no-console
+    console.log("[match/join] match not found", { matchId });
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  // log current players
+  // eslint-disable-next-line no-console
+  console.log("[match/join] before players:", { matchId, players: m.players });
+
+  // Normalize identifier: prefer provided nickname (name) when present, else use playerId.
+  const identifier = (typeof name === "string" && name.length > 0) ? name : playerId;
+  if (!identifier) {
+    // eslint-disable-next-line no-console
+    console.log("[match/join] missing identifier", { matchId, playerId, name });
+    return NextResponse.json({ error: "bad_request" }, { status: 400 });
+  }
 
   let changed = false;
-  if (!m.players.includes(playerId)) {
+  if (!m.players.includes(identifier)) {
     if (m.players.length >= 2) {
+      // eslint-disable-next-line no-console
+      console.log("[match/join] room full, reject join", { matchId, identifier, players: m.players });
       return NextResponse.json({ error: "full" }, { status: 409 });
     }
-    m.players.push(playerId);
+    m.players.push(identifier);
     changed = true;
+    // eslint-disable-next-line no-console
+    console.log("[match/join] player added", { matchId, identifier, playersAfterAdd: m.players });
+  } else {
+    // eslint-disable-next-line no-console
+    console.log("[match/join] player already in room", { matchId, identifier });
   }
   if (changed) await setMatch(m);
 
@@ -34,16 +62,29 @@ export async function POST(req: NextRequest) {
   };
 
   try {
+    // eslint-disable-next-line no-console
+    console.log("[match/join] triggering pusher state and lobby updates", { matchId, players: m.players.length });
     await pusherServer.trigger(matchChannel(matchId), "state", state);
     // lobby update
     const count = m.players.length;
     if (count >= 2) {
       await removeFromIndex(m.id);
       await pusherServer.trigger(lobbyChannel, "full", { id: m.id });
+      // eslint-disable-next-line no-console
+      console.log("[match/join] room is now full, triggered full", { matchId });
     } else {
       await pusherServer.trigger(lobbyChannel, "updated", { id: m.id, players: count });
+      // eslint-disable-next-line no-console
+      console.log("[match/join] lobby updated", { matchId, players: count });
     }
-  } catch {}
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("[match/join] pusher trigger error", err);
+  }
+
+  // final log
+  // eslint-disable-next-line no-console
+  console.log("[match/join] finished", { matchId, players: m.players });
 
   return NextResponse.json({ ok: true, state });
 }
