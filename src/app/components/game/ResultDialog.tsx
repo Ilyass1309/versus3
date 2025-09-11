@@ -11,10 +11,17 @@ export default function ResultDialog() {
   const { result } = engine;
   const [open, setOpen] = useState(false);
 
-  // keep hook order stable: declare all hooks before any conditional return
+  // hook order must be stable — declare all hooks before any early return
   useEffect(() => {
     setOpen(engine.isOver);
   }, [engine.isOver]);
+
+  useEffect(() => {
+    if (!result) return;
+    if (result.outcome === "win") {
+      void reportWinToServer();
+    }
+  }, [result]);
 
   if (!result) return null;
 
@@ -24,14 +31,6 @@ export default function ResultDialog() {
       : result.outcome === "lose"
       ? "Defeat"
       : "Draw";
-
-  // call the helper in lib (keeps fetch logic out of TSX)
-  useEffect(() => {
-    if (!result) return;
-    if (result.outcome === "win") {
-      void reportWinToServer();
-    }
-  }, [result]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

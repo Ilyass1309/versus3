@@ -7,10 +7,6 @@ export async function POST(req: Request) {
   try {
     const cookieHeader = req.headers.get("cookie") ?? "";
 
-    // adapte le nom du cookie si besoin (session, token, auth, ...)
-    const m = cookieHeader.match(/(?:session|token|next-auth.session-token)=([^;]+)/);
-    const token = m ? m[1] : null;
-
     // parse cookies and prefer a "nickname" cookie if present
     const cookiesMap = (cookieHeader || "")
       .split(";")
@@ -35,7 +31,7 @@ export async function POST(req: Request) {
     await incrementAuthedPlayerWin(user.id);
 
     return NextResponse.json({ ok: true });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
   }
 }

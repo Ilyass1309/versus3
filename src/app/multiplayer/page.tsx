@@ -116,7 +116,7 @@ export default function MultiplayerPage() {
       channel = null;
     }
 
-    const onJoined = (_payload?: unknown) => {
+    const onJoined = () => {
       // any player_joined / match_started event for this channel should redirect creator
       try {
         router.push(`/multiplayer/${own.id}`);
