@@ -237,10 +237,6 @@ export function useGameEngine(opts: EngineOptions) {
             opts.onError?.("Erreur en soumettant l'épisode");
           }
         })();
-
-        if (finalResultForServer === "player") {
-          fetch("/api/score", { method: "POST" }).catch(()=>{});
-        }
       }
 
       if (mounted.current) setIsResolving(false);
