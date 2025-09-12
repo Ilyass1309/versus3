@@ -42,35 +42,49 @@ export default function LandingPage() {
             aria-label="VERSUS III logo"
             className="relative z-10 w-44 h-44 rounded-2xl flex items-center justify-center bg-gradient-to-tr from-black/40 to-black/20 border border-white/5 shadow-xl"
           >
-            <svg viewBox="0 0 200 200" className="w-28 h-28" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+            {/* nouveau logo SVG */}
+            <svg viewBox="0 0 120 120" className="w-28 h-28" xmlns="http://www.w3.org/2000/svg" aria-hidden>
               <defs>
-                <linearGradient id="g" x1="0" x2="1">
-                  <stop offset="0" stopColor="#fff" stopOpacity="0.95" />
-                  <stop offset="1" stopColor="#fff" stopOpacity="0.75" />
+                <linearGradient id="lg1" x1="0" x2="1">
+                  <stop offset="0" stopColor="#7c3aed" />
+                  <stop offset="1" stopColor="#ec4899" />
                 </linearGradient>
-                <linearGradient id="glow" x1="0" x2="1">
-                  <stop offset="0" stopColor="#7c3aed" stopOpacity="1" />
-                  <stop offset="1" stopColor="#ec4899" stopOpacity="1" />
-                </linearGradient>
+                <radialGradient id="rg1" cx="30%" cy="20%" r="80%">
+                  <stop offset="0" stopColor="#fff" stopOpacity="0.9" />
+                  <stop offset="1" stopColor="#fff" stopOpacity="0" />
+                </radialGradient>
+                <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+                  <feGaussianBlur stdDeviation="6" result="b" />
+                  <feMerge>
+                    <feMergeNode in="b" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
               </defs>
 
-              <rect x="0" y="0" width="200" height="200" rx="30" fill="none" />
+              {/* background emblem */}
+              <rect x="6" y="6" width="108" height="108" rx="18" fill="url(#lg1)" opacity="0.14" />
+              <rect x="10" y="10" width="100" height="100" rx="16" fill="black" opacity="0.18" />
 
-              <g transform="translate(18,22)">
-                <text
-                  x="0"
-                  y="78"
-                  fontSize="76"
-                  fontWeight="800"
-                  fill="url(#g)"
-                  fontFamily="Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto"
-                  style={{ letterSpacing: -6 }}
-                >
-                  V3
-                </text>
+              {/* subtle shine */}
+              <circle cx="34" cy="28" r="28" fill="url(#rg1)" opacity="0.16" />
 
-                <circle cx="145" cy="25" r="16" fill="url(#glow)" opacity="0.18" />
+              {/* stylized V */}
+              <g transform="translate(10,6)" fill="none" stroke="url(#lg1)" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" filter="url(#soft)">
+                <path d="M12 74 L34 24 L56 74" strokeLinecap="round" />
               </g>
+
+              {/* III bars */}
+              <g transform="translate(68,22)" fill="url(#lg1)">
+                <rect x="0" y="10" width="6" height="48" rx="2" />
+                <rect x="10" y="10" width="6" height="48" rx="2" />
+                <rect x="20" y="10" width="6" height="48" rx="2" />
+              </g>
+
+              {/* small tag text VERSUS (accessory) */}
+              <text x="60" y="106" fontSize="8" textAnchor="middle" fill="#cbd5e1" fontFamily="Inter, system-ui, -apple-system, 'Segoe UI', Roboto">
+                VERSUS
+              </text>
             </svg>
           </div>
         </div>
