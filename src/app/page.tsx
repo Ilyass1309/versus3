@@ -30,109 +30,96 @@ export default function LandingPage() {
 
   return (
     <main
-      className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#070617] via-[#0b1021] to-[#071026] text-white px-6"
+      className="min-h-screen flex items-center justify-center text-white px-6"
       onClick={goToAuth}
+      style={{
+        backgroundImage:
+          "linear-gradient(rgba(3,6,23,0.6), rgba(3,6,23,0.6)), url('/versus-hero.jpg')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
     >
-      <div className="max-w-3xl w-full text-center space-y-8 select-none">
-        <div className="relative mx-auto w-44 h-44">
-          <div className="absolute inset-0 rounded-2xl blur-2xl opacity-20 bg-gradient-to-tr from-indigo-600 via-fuchsia-500 to-cyan-400 animate-blob"></div>
+      <div className="w-full max-w-4xl text-center select-none">
+        <div className="mx-auto mb-6 w-full max-w-md">
+          {/* subtle frame over the background to help text legibility */}
+          <div className="rounded-2xl p-6 backdrop-blur-sm bg-black/30 border border-white/6 shadow-2xl">
+            <h1 className="text-6xl md:text-7xl font-extrabold tracking-tight leading-none mb-2">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-white to-fuchsia-300">
+                VERSUS III
+              </span>
+            </h1>
 
-          <div
-            role="img"
-            aria-label="VERSUS III logo"
-            className="relative z-10 w-44 h-44 rounded-2xl flex items-center justify-center bg-gradient-to-tr from-black/40 to-black/20 border border-white/5 shadow-xl"
-          >
-            {/* nouveau logo SVG */}
-            <svg viewBox="0 0 120 120" className="w-28 h-28" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-              <defs>
-                <linearGradient id="lg1" x1="0" x2="1">
-                  <stop offset="0" stopColor="#7c3aed" />
-                  <stop offset="1" stopColor="#ec4899" />
-                </linearGradient>
-                <radialGradient id="rg1" cx="30%" cy="20%" r="80%">
-                  <stop offset="0" stopColor="#fff" stopOpacity="0.9" />
-                  <stop offset="1" stopColor="#fff" stopOpacity="0" />
-                </radialGradient>
-                <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
-                  <feGaussianBlur stdDeviation="6" result="b" />
-                  <feMerge>
-                    <feMergeNode in="b" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-              </defs>
-
-              {/* background emblem */}
-              <rect x="6" y="6" width="108" height="108" rx="18" fill="url(#lg1)" opacity="0.14" />
-              <rect x="10" y="10" width="100" height="100" rx="16" fill="black" opacity="0.18" />
-
-              {/* subtle shine */}
-              <circle cx="34" cy="28" r="28" fill="url(#rg1)" opacity="0.16" />
-
-              {/* stylized V */}
-              <g transform="translate(10,6)" fill="none" stroke="url(#lg1)" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" filter="url(#soft)">
-                <path d="M12 74 L34 24 L56 74" strokeLinecap="round" />
-              </g>
-
-              {/* III bars */}
-              <g transform="translate(68,22)" fill="url(#lg1)">
-                <rect x="0" y="10" width="6" height="48" rx="2" />
-                <rect x="10" y="10" width="6" height="48" rx="2" />
-                <rect x="20" y="10" width="6" height="48" rx="2" />
-              </g>
-
-              {/* small tag text VERSUS (accessory) */}
-              <text x="60" y="106" fontSize="8" textAnchor="middle" fill="#cbd5e1" fontFamily="Inter, system-ui, -apple-system, 'Segoe UI', Roboto">
-                VERSUS
-              </text>
-            </svg>
+            <p className="text-sm md:text-base text-slate-200/90 max-w-xl mx-auto">
+              Minimal tactical duels — local & online. Fast matches, deep decisions.
+            </p>
           </div>
         </div>
 
-        <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight drop-shadow-lg">
-          <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-white to-fuchsia-300">
-            VERSUS III
-          </span>
-        </h1>
+        <div className="mx-auto max-w-xl">
+          <div className="rounded-3xl p-8 backdrop-blur-lg bg-gradient-to-t from-black/40 to-black/20 border border-white/6 shadow-xl">
+            <div className="flex flex-col items-center gap-6">
+              {/* Decorative small logo (keeps page light) */}
+              <svg viewBox="0 0 120 120" className="w-20 h-20" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                <defs>
+                  <linearGradient id="lg1" x1="0" x2="1">
+                    <stop offset="0" stopColor="#7c3aed" />
+                    <stop offset="1" stopColor="#ec4899" />
+                  </linearGradient>
+                  <radialGradient id="rg1" cx="30%" cy="20%" r="80%">
+                    <stop offset="0" stopColor="#fff" stopOpacity="0.9" />
+                    <stop offset="1" stopColor="#fff" stopOpacity="0" />
+                  </radialGradient>
+                </defs>
 
-        <p className="max-w-xl mx-auto text-sm md:text-base text-slate-300">
-          Minimal tactical duels — local & online. Fast matches, deep decisions.
-        </p>
+                <rect x="6" y="6" width="108" height="108" rx="18" fill="url(#lg1)" opacity="0.12" />
+                <rect x="10" y="10" width="100" height="100" rx="14" fill="black" opacity="0.18" />
+                <circle cx="34" cy="28" r="20" fill="url(#rg1)" opacity="0.14" />
+                <g transform="translate(10,8)" fill="none" stroke="url(#lg1)" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 66 L32 20 L52 66" />
+                </g>
+                <g transform="translate(68,24)" fill="url(#lg1)">
+                  <rect x="0" y="10" width="5" height="44" rx="2" />
+                  <rect x="10" y="10" width="5" height="44" rx="2" />
+                  <rect x="20" y="10" width="5" height="44" rx="2" />
+                </g>
+              </svg>
 
-        <div className="mt-4">
-          <div
-            className="inline-flex items-center gap-3 px-5 py-3 rounded-full bg-white/6 backdrop-blur-sm border border-white/6 text-sm text-slate-100 cursor-pointer hover:scale-[1.02] transition-transform"
-            aria-hidden
-          >
-            <svg className="w-4 h-4 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M12 5v14M5 12h14" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <span className="animate-pulse">press any key • touch to continue</span>
+              <div className="text-center">
+                <p className="text-xs md:text-sm text-slate-300 mb-2">
+                  Touch the screen or press any key to continue
+                </p>
+
+                <div className="mt-1 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/6 border border-white/6 text-sm text-slate-100">
+                  <span className="animate-pulse">» press any key • touch</span>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-slate-400">
+                Click or tap anywhere to continue — you will be taken to the nickname / login screen.
+              </p>
+            </div>
           </div>
         </div>
-
-        <p className="text-[11px] text-slate-500 mt-2">
-          By continuing you will be taken to the login / nickname screen.
-        </p>
       </div>
 
       <style jsx>{`
-        @keyframes blob {
+        .animate-pulse {
+          animation: pulse 1.6s ease-in-out infinite;
+        }
+        @keyframes pulse {
           0% {
-            transform: translate(0px, 0px) scale(1);
+            opacity: 1;
+            transform: translateY(0);
           }
-          33% {
-            transform: translate(8px, -12px) scale(1.05);
-          }
-          66% {
-            transform: translate(-6px, 6px) scale(0.95);
+          50% {
+            opacity: 0.5;
+            transform: translateY(3px);
           }
           100% {
-            transform: translate(0px, 0px) scale(1);
+            opacity: 1;
+            transform: translateY(0);
           }
-        }
-        .animate-blob {
-          animation: blob 6s infinite;
         }
       `}</style>
     </main>
