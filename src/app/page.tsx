@@ -1,333 +1,87 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { GameShell } from "@/app/components/game/GameShell";
-import { useLobby } from "@/hooks/useLobby";
-import { createMatch, fetchLeaderboard, joinMatch } from "@/lib/lobbyApi";
-import type { ScoreRow } from "@/types/lobby";
 
-export default function MultiplayerPage() {
+export default function LandingPage() {
   const router = useRouter();
+  const handledRef = useRef(false);
 
-  // nickname
-  const [myNick, setMyNick] = useState<string | null>(null);
-  useEffect(() => {
-    setMyNick(typeof window !== "undefined" ? localStorage.getItem("nickname") : null);
-  }, []);
-
-  // lobby (rooms) — ne déstructure PAS `rooms` pour éviter le warning "unused"
-  const {
-    loading: roomsLoading,
-    hasOwnRoom,
-    visibleRooms,
-    refreshRooms,
-    leaveAndDeleteOwn,
-    quickJoin,
-    MAX_PLAYERS,
-  } = useLobby(myNick);
-
-  // leaderboard
-  const [leaderboard, setLeaderboard] = useState<ScoreRow[]>([]);
-  const [lbLoading, setLbLoading] = useState(true);
-  const [lbError, setLbError] = useState<string | null>(null);
+  const goToAuth = useCallback(() => {
+    if (handledRef.current) return;
+    handledRef.current = true;
+    router.push("/nickname");
+  }, [router]);
 
   useEffect(() => {
-    let mounted = true;
-    const run = async () => {
-      try {
-        setLbLoading(true);
-        const list = await fetchLeaderboard();
-        if (mounted) {
-          setLeaderboard(list);
-          setLbError(null);
-        }
-      } catch {
-        if (mounted) setLbError("Impossible de charger le classement");
-      } finally {
-        if (mounted) setLbLoading(false);
-      }
-    };
-    run();
-    const iv = setInterval(run, 30_000);
+    const onAnyKey = () => goToAuth();
+    const onTouch = () => goToAuth();
+
+    window.addEventListener("keydown", onAnyKey, { once: true });
+    window.addEventListener("touchstart", onTouch, { once: true });
+    window.addEventListener("pointerdown", onTouch, { once: true });
+
     return () => {
-      mounted = false;
-      clearInterval(iv);
+      window.removeEventListener("keydown", onAnyKey);
+      window.removeEventListener("touchstart", onTouch);
+      window.removeEventListener("pointerdown", onTouch);
     };
-  }, []);
-
-  // messages & loading pour les actions
-  const [roomLoading, setRoomLoading] = useState(false);
-  const [roomMessage, setRoomMessage] = useState<string | null>(null);
-
-  const handleCreate = useCallback(async () => {
-    if (hasOwnRoom) return setRoomMessage("Vous avez déjà une salle ouverte");
-    setRoomLoading(true);
-    setRoomMessage(null);
-    try {
-      const id = await createMatch(myNick ?? "guest");
-      setRoomMessage("Salle créée: " + id);
-      await refreshRooms();
-    } catch (e: unknown) {
-      setRoomMessage(
-        "Erreur création : " + (e instanceof Error ? e.message : "server"),
-      );
-    } finally {
-      setRoomLoading(false);
-    }
-  }, [hasOwnRoom, myNick, refreshRooms]);
-
-  const handleJoin = useCallback(
-    async (roomId?: string) => {
-      if (hasOwnRoom) return setRoomMessage("Vous avez déjà une salle ouverte");
-      setRoomLoading(true);
-      setRoomMessage(null);
-      try {
-        const id = roomId ?? (await quickJoin());
-        const playerId = myNick ?? Math.random().toString(36).slice(2, 8);
-        await joinMatch(id, playerId);
-        setRoomMessage("Rejoint: " + id);
-        await refreshRooms();
-      } catch (e: unknown) {
-        setRoomMessage("Erreur join : " + (e instanceof Error ? e.message : "server"));
-      } finally {
-        setRoomLoading(false);
-      }
-    },
-    [hasOwnRoom, myNick, quickJoin, refreshRooms],
-  );
-
-  const handleDeleteOwn = useCallback(async () => {
-    if (!confirm("Supprimer votre salle ?")) return;
-    setRoomLoading(true);
-    try {
-      const ok = await leaveAndDeleteOwn();
-      setRoomMessage(ok ? "Salle supprimée" : "Aucune salle à supprimer");
-    } catch {
-      setRoomMessage("Erreur suppression");
-    } finally {
-      setRoomLoading(false);
-    }
-  }, [leaveAndDeleteOwn]);
+  }, [goToAuth]);
 
   return (
-    <GameShell>
-      <div className="w-full flex flex-col lg:flex-row gap-6 mt-4">
-        {/* Main lobby area */}
-        <main className="flex-1 order-2 lg:order-2 bg-slate-900 text-slate-100 rounded-lg shadow-lg p-6 min-h-[60vh]">
-          <div className="flex items-start justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-2xl font-semibold">Salle Multijoueur</h1>
-              <p className="text-sm text-slate-400 mt-1">
-                Rejoins ou crée une partie pour affronter d&apos;autres joueurs.
-              </p>
-            </div>
+    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-white px-6">
+      <div className="max-w-2xl w-full text-center space-y-8">
+        {/* Logo */}
+        <div
+          role="img"
+          aria-label="VERSUS III logo"
+          className="mx-auto w-36 h-36 rounded-xl flex items-center justify-center bg-gradient-to-tr from-indigo-600 to-fuchsia-500 shadow-2xl"
+        >
+          {/* simple SVG mark */}
+          <svg viewBox="0 0 200 200" className="w-24 h-24" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="g" x1="0" x2="1">
+                <stop offset="0" stopColor="#fff" stopOpacity="0.95" />
+                <stop offset="1" stopColor="#ffffff" stopOpacity="0.75" />
+              </linearGradient>
+            </defs>
+            <rect x="0" y="0" width="200" height="200" rx="24" fill="none" />
+            <g transform="translate(20,30)">
+              <text x="0" y="70" fontSize="72" fontWeight="700" fill="url(#g)" fontFamily="system-ui,Segoe UI,Roboto">
+                V3
+              </text>
+            </g>
+          </svg>
+        </div>
 
-            {/* Return button */}
-            <div>
-              <button
-                onClick={() => router.push("/game")}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-rose-500 text-white font-semibold shadow-md hover:bg-rose-600 focus:outline-none focus:ring-2 focus:ring-rose-400"
-                aria-label="Retour au jeu"
-              >
-                ← Retour au jeu
-              </button>
-            </div>
+        {/* Title */}
+        <h1 className="text-4xl md:text-6xl font-extrabold tracking-wider">VERSUS III</h1>
+
+        {/* Subtitle / CTA */}
+        <div>
+          <p className="text-sm text-slate-300 mb-4">A minimal tactical duel — local & online</p>
+
+          <button
+            type="button"
+            onClick={goToAuth}
+            className="inline-flex items-center gap-3 px-6 py-3 rounded-lg bg-white/8 hover:bg-white/12 transition focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            aria-label="Go to login"
+          >
+            <span className="text-[13px] font-medium">Enter</span>
+          </button>
+
+          <div
+            className="mt-6 text-xs text-slate-200 opacity-90"
+            style={{ pointerEvents: "none" }}
+          >
+            <span className="inline-block animate-pulse">press any key • touch to continue</span>
           </div>
+        </div>
 
-          {/* Controls */}
-          <div className="flex flex-col sm:flex-row gap-3 mb-4">
-            <button
-              onClick={handleCreate}
-              disabled={roomLoading || hasOwnRoom}
-              aria-busy={roomLoading}
-              className="px-4 py-2 rounded bg-indigo-500 text-white font-medium hover:bg-indigo-600 disabled:opacity-50"
-            >
-              {roomLoading ? "Chargement..." : "Créer une partie"}
-            </button>
-
-            <button
-              onClick={() => {
-                const first = visibleRooms[0];
-                if (first) handleJoin(first.id);
-                else setRoomMessage("Aucune salle ouverte pour rejoindre");
-              }}
-              disabled={roomLoading || hasOwnRoom || visibleRooms.length === 0}
-              aria-busy={roomLoading}
-              className="px-4 py-2 rounded bg-emerald-500 text-black font-medium hover:bg-emerald-600 disabled:opacity-50"
-            >
-              {roomLoading ? "Chargement..." : "Rejoindre une partie"}
-            </button>
-
-            {hasOwnRoom && (
-              <button
-                onClick={handleDeleteOwn}
-                disabled={roomLoading}
-                aria-busy={roomLoading}
-                className="px-4 py-2 rounded bg-rose-600 text-white font-medium hover:bg-rose-700 disabled:opacity-50"
-              >
-                Supprimer ma salle
-              </button>
-            )}
-          </div>
-
-          {/* Rooms table */}
-          <section className="mb-6 rounded-md border border-slate-800 p-4 bg-gradient-to-b from-slate-850 via-slate-900 to-slate-950">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-medium text-slate-100">Salles disponibles</h3>
-              <div className="text-sm text-slate-400">
-                {roomsLoading ? "Chargement..." : `${visibleRooms.length} disponible(s)`}
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-slate-400 text-left">
-                    <th className="pb-2">Hôte</th>
-                    <th className="pb-2">Joueurs</th>
-                    <th className="pb-2">Code</th>
-                    <th className="pb-2" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleRooms.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="py-4 text-slate-400">
-                        Aucune salle ouverte
-                      </td>
-                    </tr>
-                  ) : (
-                    visibleRooms.map((r) => {
-                      const players = r.players;
-                      const host = r.host || (players[0] ?? "invité");
-                      return (
-                        <tr key={r.id} className="border-t border-slate-800">
-                          <td className="py-3">{host}</td>
-                          <td className="py-3">
-                            {players.length}/{MAX_PLAYERS}
-                          </td>
-                          <td className="py-3 font-mono">{r.id}</td>
-                          <td className="py-3 text-right">
-                            <button
-                              onClick={() => handleJoin(r.id)}
-                              disabled={roomLoading || hasOwnRoom}
-                              aria-busy={roomLoading}
-                              className="px-3 py-1 rounded bg-emerald-500 text-black font-medium hover:bg-emerald-600 disabled:opacity-50"
-                            >
-                              {roomLoading ? "..." : "Rejoindre"}
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <section className="rounded-md border border-slate-800 p-4 bg-gradient-to-b from-slate-850 via-slate-900 to-slate-950">
-            <p className="text-sm text-slate-400 mb-4">
-              Ici s&apos;affichera la liste des parties, l&apos;état des matchs et les contrôles de lobby.
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-md bg-slate-800 border border-slate-700">
-                <h3 className="font-medium text-slate-100">Rejoindre (auto)</h3>
-                <p className="text-sm text-slate-400 mt-1">Rejoins un adversaire aléatoire ou choisi.</p>
-                <div className="mt-4">
-                  <button
-                    onClick={() =>
-                      handleJoin().catch(() => setRoomMessage("Aucune salle ouverte pour rejoindre"))
-                    }
-                    disabled={roomLoading || hasOwnRoom}
-                    className="px-3 py-2 rounded bg-emerald-500 text-black font-medium hover:bg-emerald-600 disabled:opacity-50"
-                  >
-                    {roomLoading ? "Chargement..." : "Rejoindre (auto)"}
-                  </button>
-                </div>
-                {roomMessage && <p className="text-sm text-slate-400 mt-2">{roomMessage}</p>}
-              </div>
-
-              <div className="p-4 rounded-md bg-slate-800 border border-slate-700">
-                <h3 className="font-medium text-slate-100">Créer une partie</h3>
-                <p className="text-sm text-slate-400 mt-1">Crée une salle et attends un adversaire.</p>
-                <div className="mt-4">
-                  <button
-                    onClick={handleCreate}
-                    disabled={hasOwnRoom}
-                    className="px-3 py-2 rounded bg-indigo-500 text-white font-medium hover:bg-indigo-600 disabled:opacity-50"
-                  >
-                    {roomLoading ? "Chargement..." : "Créer"}
-                  </button>
-                </div>
-                {roomMessage && <p className="text-sm text-slate-400 mt-2">{roomMessage}</p>}
-              </div>
-            </div>
-          </section>
-        </main>
-
-        {/* Sidebar leaderboard */}
-        <aside className="order-1 lg:order-1 lg:w-72 xl:w-80 shrink-0">
-          <div className="bg-slate-900 text-slate-100 rounded-lg shadow-lg p-4 border border-slate-800">
-            <div className="flex items-start justify-between mb-3">
-              <div>
-                <h2 className="text-lg font-semibold">Classement Multijoueur</h2>
-                <p className="text-xs text-slate-400">Joueurs avec le plus de points (ranking multi).</p>
-              </div>
-
-              <button
-                onClick={async () => {
-                  try {
-                    setLbLoading(true);
-                    const list = await fetchLeaderboard();
-                    setLeaderboard(list);
-                    setLbError(null);
-                  } catch {
-                    setLbError("Erreur de chargement");
-                  } finally {
-                    setLbLoading(false);
-                  }
-                }}
-                className="text-sm text-slate-400 hover:text-slate-200"
-                aria-label="Rafraîchir"
-              >
-                ⟳
-              </button>
-            </div>
-
-            <div className="h-px bg-slate-800 my-2" />
-
-            {lbLoading ? (
-              <div className="space-y-2">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="h-8 bg-slate-800 rounded animate-pulse" />
-                ))}
-              </div>
-            ) : lbError ? (
-              <div className="text-sm text-rose-400">{lbError}</div>
-            ) : leaderboard.length === 0 ? (
-              <div className="text-sm text-slate-400">Aucun score disponible</div>
-            ) : (
-              <ol className="space-y-2">
-                {leaderboard.map((p, i) => (
-                  <li
-                    key={p.nickname}
-                    className="flex items-center justify-between gap-3 p-2 rounded hover:bg-slate-800"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 text-center font-medium text-slate-200">{i + 1}</div>
-                      <div className="text-sm font-medium text-slate-100">{p.nickname}</div>
-                    </div>
-                    <div className="text-sm font-mono text-slate-200">{p.points ?? 0}</div>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </div>
-        </aside>
+        <p className="text-[11px] text-slate-500 mt-6">
+          Already have an account? The login screen will let you sign in or create one.
+        </p>
       </div>
-    </GameShell>
+    </main>
   );
 }
