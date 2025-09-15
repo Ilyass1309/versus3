@@ -526,27 +526,42 @@ export default function MatchRoomPage() {
 
         {ended.open && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-            <div className="w-full max-w-sm rounded-xl border border-white/10 bg-slate-900/90 backdrop-blur p-5 shadow-xl">
-              <div className="text-lg font-semibold mb-1">Fin de partie</div>
-              <div className="text-sm text-slate-300 mb-4">
-                {winnerLine() ?? "Partie terminée"}
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <button onClick={leave} className="px-3 py-2 text-sm rounded bg-slate-800 hover:bg-slate-700">
-                  Quitter
-                </button>
-                {!wantsRematch ? (
-                  <button onClick={onClickRematch} className="px-3 py-2 text-sm rounded bg-emerald-600 hover:bg-emerald-500">
-                    Relancer
-                  </button>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
-                    <span className="text-xs text-slate-300">
-                      En attente de l’autre joueur…
-                    </span>
+            <div className="w-full max-w-lg rounded-xl border border-white/10 bg-slate-900/95 backdrop-blur p-6 shadow-2xl transform transition-all">
+              <div className="flex items-start gap-4">
+                <div className="flex-1">
+                  <div className="text-2xl font-extrabold mb-1">Fin de la partie</div>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="inline-flex items-center px-3 py-1 rounded-full bg-emerald-700/20 text-emerald-300 text-sm font-medium">{winnerLine() ? winnerLine() : "Partie terminée"}</div>
+                    <div className="text-xs text-slate-400">Turn {state?.turn ?? "—"} · Phase: {state?.phase}</div>
                   </div>
-                )}
+
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="p-3 rounded-lg bg-slate-800/60 border border-slate-700">
+                      <div className="text-xs text-slate-300">Joueur</div>
+                      <div className="mt-1 text-sm font-semibold">{displayNameYou}</div>
+                      <div className="mt-2 text-xs text-slate-400">HP: {hpYou} · Charge: {chYou}</div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-slate-800/60 border border-slate-700">
+                      <div className="text-xs text-slate-300">Adversaire</div>
+                      <div className="mt-1 text-sm font-semibold">{displayNameOpponent}</div>
+                      <div className="mt-2 text-xs text-slate-400">HP: {hpEnemy} · Charge: {chEnemy}</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <button onClick={onClickRematch} className="px-4 py-2 rounded-md bg-emerald-500 hover:bg-emerald-400 text-sm font-medium">
+                      {wantsRematch ? 'Relancer (en attente...)' : 'Relancer la partie'}
+                    </button>
+                    <button onClick={leave} className="px-3 py-2 rounded-md bg-slate-800 hover:bg-slate-700 text-sm">
+                      Quitter
+                    </button>
+                    {wantsRematch && (
+                      <div className="ml-2 inline-flex items-center gap-2 text-xs text-slate-300">
+                        <div className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" /> En attente de l’autre joueur…
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
