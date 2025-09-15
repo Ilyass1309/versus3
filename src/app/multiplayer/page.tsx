@@ -9,6 +9,7 @@ import { LobbyControls } from "@/app/components/multiplayer/LobbyControls";
 import { Leaderboard } from "@/app/components/multiplayer/Leaderboard";
 import { useLeaderboard } from "@/hooks/useLeaderboard";
 import { getPusher } from "@/lib/pusher-client";
+import { matchChannel } from "@/lib/pusher-channel";
 import type { Room as LobbyRoom } from "@/types/lobby";
 type PusherLike = { channel?: (n: string) => ChannelLike | null; subscribe?: (n: string) => ChannelLike; unsubscribe?: (n: string) => void; connection?: { state?: string; bind?: (ev: string, cb: () => void) => void } };
 type ChannelLike = { bind: (e: string, cb: (p?: unknown) => void) => void; unbind: (e: string, cb: (p?: unknown) => void) => void };
@@ -19,6 +20,10 @@ export default function MultiplayerPage() {
   useEffect(() => {
     if (typeof window !== "undefined") setMyNick(localStorage.getItem("nickname"));
   }, []);
+
+  useEffect(() => {
+    console.debug("[MultiplayerPage] myNick =", myNick);
+  }, [myNick]);
 
   const {
     rooms,
@@ -39,6 +44,7 @@ export default function MultiplayerPage() {
     setRoomMessage(null);
     try {
       const id = await createMatch(myNick ?? "guest");
+      console.info("[MultiplayerPage] created match", id, "by", myNick);
       setRoomMessage("Salle créée: " + id);
       await refreshRooms();
     } catch (e) {
@@ -56,6 +62,7 @@ export default function MultiplayerPage() {
       try {
         const id = roomId ?? (await quickJoin());
         const playerId = myNick ?? Math.random().toString(36).slice(2, 8);
+        console.info("[MultiplayerPage] joining match", id, "as", playerId);
         await joinMatch(id, playerId);
 
         // redirect the user to the room page after a successful join
@@ -65,6 +72,7 @@ export default function MultiplayerPage() {
         await refreshRooms();
       } catch (e) {
         setRoomMessage("Erreur join : " + (e instanceof Error ? e.message : "server"));
+        console.error("[MultiplayerPage] join error", e);
       } finally {
         setRoomLoading(false);
       }
@@ -98,46 +106,62 @@ export default function MultiplayerPage() {
     return (Array.isArray(rooms) ? rooms : []).map(normalizeRoom).filter((r): r is LobbyRoom => r !== null);
   }, [rooms]);
 
+  useEffect(() => {
+    console.debug("[MultiplayerPage] normalizedRooms", normalizedRooms);
+  }, [normalizedRooms]);
+
   // Redirect creator from lobby to match page when someone joins their room
   useEffect(() => {
     // find own room id
     const own = normalizedRooms.find((r) => r.host === (myNick ?? "") || r.players.includes(myNick ?? ""));
     if (!own?.id) return;
 
-    const channelName = `match:${own.id}`;
+    // use the same channel naming as server
+    const channelName = matchChannel(own.id);
     let pusher: PusherLike | null = null;
     let channel: ChannelLike | null = null;
 
     try {
       pusher = getPusher() as PusherLike;
       channel = (pusher.channel ? pusher.channel(channelName) : null) ?? (pusher.subscribe ? pusher.subscribe(channelName) : null);
+      console.debug("[MultiplayerPage] subscribed to", channelName, { pusherExists: !!pusher, channelExists: !!channel });
     } catch {
       pusher = null;
       channel = null;
     }
 
-    const onJoined = () => {
+    const onJoined = (payload?: unknown) => {
       // any player_joined / match_started event for this channel should redirect creator
       try {
-        router.push(`/multiplayer/${own.id}`);
-      } catch {}
+        console.info("[MultiplayerPage] onJoined event on channel", channelName, { payload, own });
+        // Only redirect if we are the host/creator and the room is now full
+        const nowFull = own && own.players && own.players.length >= MAX_PLAYERS;
+        console.debug("[MultiplayerPage] redirect decision", { own, nowFull });
+        if (nowFull) {
+          router.push(`/multiplayer/${own.id}`);
+        }
+      } catch (e) {
+        console.error("[MultiplayerPage] onJoined handler error", e);
+      }
     };
 
     if (channel) {
-      channel.bind("player_joined", onJoined);
-      channel.bind("match_started", onJoined);
+      channel.bind("player_joined", onJoined as any);
+      channel.bind("match_started", onJoined as any);
     }
 
     return () => {
       try {
         if (channel) {
-          channel.unbind("player_joined", onJoined);
-          channel.unbind("match_started", onJoined);
+          channel.unbind("player_joined", onJoined as any);
+          channel.unbind("match_started", onJoined as any);
         }
         if (pusher) {
           try { pusher.unsubscribe?.(channelName); } catch {}
         }
-      } catch {}
+      } catch (e) {
+        console.warn("[MultiplayerPage] cleanup error", e);
+      }
     };
   }, [normalizedRooms, myNick, router]);
 
@@ -151,6 +175,7 @@ export default function MultiplayerPage() {
         setRoomMessage("Aucune salle à supprimer");
         return;
       }
+      console.info("[MultiplayerPage] deleting own match", own.id);
       await deleteMatch(String(own.id), myNick ?? "");
       setRoomMessage("Salle supprimée");
       await refreshRooms();

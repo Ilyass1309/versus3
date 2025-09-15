@@ -66,7 +66,7 @@ export default function LandingPage() {
       onClick={goToAuth}
       style={{
         backgroundImage:
-          "linear-gradient(rgba(3,6,23,0.55), rgba(3,6,23,0.55)), url('/versus-hero.jpg')",
+          "linear-gradient(rgba(3,6,23,0.55), rgba(3,6,23,0.55))",
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
@@ -125,7 +125,7 @@ export default function LandingPage() {
               <div className="text-center">
                 <p className="text-xs md:text-sm text-slate-300 mb-1">Touch the screen or press any key to continue</p>
                 <div className="mt-1 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/6 border border-white/6 text-sm text-slate-100">
-                  <span className="pulse">» press any key • touch</span>
+                  <span className="pulse">press any key • touch</span>
                 </div>
               </div>
 

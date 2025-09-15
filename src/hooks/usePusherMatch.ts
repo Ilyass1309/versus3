@@ -58,6 +58,7 @@ export function usePusherMatch(matchId: string | null) {
 
     const channelName = matchChannel(matchId);
     const ch = p.subscribe(channelName);
+    console.debug(`[usePusherMatch] subscribing to ${channelName}`);
 
     // Set player id when connected/subscribed
     const onConnected = () => {
@@ -75,6 +76,10 @@ export function usePusherMatch(matchId: string | null) {
     ch.bind("state", onState);
     ch.bind("resolution", onResolution);
     ch.bind("rematch", onRematch);
+    type PlayerJoinedPayload = { id?: string; name?: string } | unknown;
+    ch.bind("player_joined", (payload: PlayerJoinedPayload) => {
+      if (!cancelled) console.info("[usePusherMatch] player_joined event on channel", channelName, payload);
+    });
 
     return () => {
       cancelled = true;
@@ -131,6 +136,10 @@ export function usePusherMatch(matchId: string | null) {
     const idx = state?.players?.indexOf?.(playerId) ?? -1;
     return idx === 0 ? "p" : idx === 1 ? "e" : null;
   }, [state?.players, playerId]);
+
+  useEffect(() => {
+    console.debug('[usePusherMatch] status', { matchId, playerId, joined: joinedRef.current, isJoined, state });
+  }, [matchId, playerId, isJoined, state]);
 
   return { playerId, state, resolving, reveal, rematch, sendAction, isJoined, mySide };
 }

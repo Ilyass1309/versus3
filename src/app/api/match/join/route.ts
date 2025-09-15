@@ -65,6 +65,13 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line no-console
     console.log("[match/join] triggering pusher state and lobby updates", { matchId, players: m.players.length });
     await pusherServer.trigger(matchChannel(matchId), "state", state);
+    // Notify creator(s) explicitly that a player joined
+    try {
+      await pusherServer.trigger(matchChannel(matchId), "player_joined", { id: identifier, name: identifier });
+      console.log("[match/join] triggered player_joined", { matchId, identifier });
+    } catch (e) {
+      console.warn("[match/join] player_joined trigger failed", e);
+    }
     // lobby update
     const count = m.players.length;
     if (count >= 2) {

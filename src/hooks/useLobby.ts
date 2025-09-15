@@ -50,8 +50,10 @@ export function useLobby(myNick: string | null) {
   const fetchRooms = useCallback(async () => {
     setLoading(true);
     try {
+      console.debug("[useLobby] fetchRooms start");
       const res = await fetch("/api/match/list");
       const body = await res.json().catch(() => ({}));
+      console.debug("[useLobby] fetchRooms response body:", body);
       const raw = (body?.rooms ?? body?.matches ?? body?.list ?? body) as unknown;
       const arr = Array.isArray(raw) ? (raw as RawRoom[]) : [];
       const parsed = arr.map((r) => {
@@ -67,6 +69,7 @@ export function useLobby(myNick: string | null) {
         } as Room;
       });
       setRooms(parsed);
+      console.debug("[useLobby] parsed rooms:", parsed);
     } catch (e) {
       console.error("[useLobby] fetchRooms error", e);
       setRooms([]);
@@ -78,6 +81,7 @@ export function useLobby(myNick: string | null) {
   useEffect(() => {
     let mounted = true;
     // initial + polling
+    console.debug("[useLobby] initial fetch + polling start");
     fetchRooms();
     const iv = setInterval(() => {
       if (mounted) fetchRooms();
@@ -93,6 +97,10 @@ export function useLobby(myNick: string | null) {
     [rooms],
   );
 
+  useEffect(() => {
+    console.debug("[useLobby] visibleRooms updated", visibleRooms);
+  }, [visibleRooms]);
+
   const hasOwnRoom = useMemo(() => {
     if (!myNick) return false;
     return rooms.some((r) => {
@@ -101,6 +109,10 @@ export function useLobby(myNick: string | null) {
       return r.players.includes(myNick);
     });
   }, [rooms, myNick]);
+
+  useEffect(() => {
+    console.debug("[useLobby] hasOwnRoom", { myNick, hasOwnRoom, roomsLength: rooms.length });
+  }, [hasOwnRoom, myNick, rooms.length]);
 
   const refreshRooms = useCallback(async () => {
     await fetchRooms();
