@@ -228,13 +228,45 @@ export default function MatchRoomPage() {
     if (!id || !playerId) return;
     setWantsRematch(true);
     setWaiting(true);
+    // Compute the identifier the server expects. Prefer the hook's playerId,
+    // but fallback to the local nickname if the server stored that, or try
+    // to find the server-side id from state.names (id -> nickname) when
+    // available.
+    let playerIdToSend = playerId;
     try {
-      await fetch("/api/match/rematch", {
+      const localNick = typeof window !== "undefined" ? localStorage.getItem("nickname") : null;
+      const playersArr = state?.players ?? [];
+
+      if (Array.isArray(playersArr) && playersArr.includes(playerId)) {
+        playerIdToSend = playerId;
+      } else if (localNick && Array.isArray(playersArr) && playersArr.includes(localNick)) {
+        playerIdToSend = localNick;
+      } else if (localNick && state?.names && typeof state.names === "object") {
+        const names = state.names as Record<string, string>;
+        const found = Object.keys(names).find((k) => names[k] === localNick);
+        if (found) playerIdToSend = found;
+      }
+      console.info("[MatchRoomPage] rematch: sending playerId", { playerId, playerIdToSend, localNick: typeof window !== 'undefined' ? localStorage.getItem('nickname') : null });
+    } catch (e) {
+      console.warn("[MatchRoomPage] failed to compute server player id", e);
+    }
+
+    try {
+      const resp = await fetch("/api/match/rematch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ matchId: id, playerId }),
+        body: JSON.stringify({ matchId: id, playerId: playerIdToSend }),
       });
-    } catch {}
+      if (resp.status === 403) {
+        console.error('[MatchRoomPage] rematch forbidden (403) — playerId not recognized by server', playerIdToSend);
+        setWaiting(false);
+        setWantsRematch(false);
+      }
+    } catch (err) {
+      console.error('[MatchRoomPage] rematch request failed', err);
+      setWaiting(false);
+      setWantsRematch(false);
+    }
   }
 
   function leave() {
