@@ -60,6 +60,16 @@ export default function MatchRoomPage() {
   const id = params.id;
   const { playerId, state, resolving, reveal, rematch, sendAction, isJoined, mySide } = usePusherMatch(id);
   const router = useRouter();
+  useEffect(() => {
+    console.info('[MatchRoomPage] mounted for match id', id);
+    return () => {
+      console.info('[MatchRoomPage] unmounted for match id', id);
+    };
+  }, [id]);
+
+  useEffect(() => {
+    console.info('[MatchRoomPage] playerId/state updated', { playerId, names: state?.names, players: state?.players });
+  }, [playerId, state?.names, state?.players]);
   const [selected, setSelected] = useState<number | null>(null);
   const [spend, setSpend] = useState<number>(0);
   const disabled = !isJoined || state?.phase !== "collect";
