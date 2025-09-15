@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { GameShell } from "@/app/components/game/GameShell";
 import { useLobby } from "@/hooks/useLobby";
@@ -10,6 +10,7 @@ import { Leaderboard } from "@/app/components/multiplayer/Leaderboard";
 import { useLeaderboard } from "@/hooks/useLeaderboard";
 import { getPusher } from "@/lib/pusher-client";
 import { matchChannel } from "@/lib/pusher-channel";
+import StartCountdownModal from "@/app/components/multiplayer/StartCountdownModal";
 import type { Room as LobbyRoom } from "@/types/lobby";
 type PusherLike = { channel?: (n: string) => ChannelLike | null; subscribe?: (n: string) => ChannelLike; unsubscribe?: (n: string) => void; connection?: { state?: string; bind?: (ev: string, cb: () => void) => void } };
 type ChannelLike = { bind: (e: string, cb: (p?: unknown) => void) => void; unbind: (e: string, cb: (p?: unknown) => void) => void };
@@ -38,6 +39,11 @@ export default function MultiplayerPage() {
   const [roomLoading, setRoomLoading] = useState(false);
   const [roomMessage, setRoomMessage] = useState<string | null>(null);
 
+  // Start countdown modal state (shown to creator in lobby before redirect)
+  const [startModalVisible, setStartModalVisible] = useState(false);
+  const [pendingMatchRedirect, setPendingMatchRedirect] = useState<string | null>(null);
+  const startTimeoutRef = useRef<number | null>(null);
+
   const handleCreate = useCallback(async () => {
     if (hasOwnRoom) return setRoomMessage("Vous avez déjà une salle ouverte");
     setRoomLoading(true);
@@ -65,8 +71,22 @@ export default function MultiplayerPage() {
         console.info("[MultiplayerPage] joining match", id, "as", playerId);
         await joinMatch(id, playerId);
 
-        // redirect the user to the room page after a successful join
-        router.push(`/multiplayer/${id}`);
+        // Show the start modal to the joiner as well, then redirect after 3s
+        setPendingMatchRedirect(id);
+        setStartModalVisible(true);
+        if (startTimeoutRef.current) {
+          window.clearTimeout(startTimeoutRef.current);
+          startTimeoutRef.current = null;
+        }
+        startTimeoutRef.current = window.setTimeout(() => {
+          setStartModalVisible(false);
+          setPendingMatchRedirect(null);
+          try {
+            router.push(`/multiplayer/${id}`);
+          } catch (err) {
+            console.error('[MultiplayerPage] join redirect failed', err);
+          }
+        }, 3000);
 
         // still refresh lobby list as a best-effort
         await refreshRooms();
@@ -130,7 +150,9 @@ export default function MultiplayerPage() {
       channel = null;
     }
 
-    // handle state events (authoritative): redirect when server state shows room full
+    // handle state events (authoritative): show a start modal when server state shows room full,
+    // then redirect after a short countdown. This avoids immediate redirect race conditions
+    // and lets the creator see the "La partie va commencer" modal before navigation.
     const onStateEvent = (s: { players?: string[] } | unknown) => {
       try {
         console.info("[MultiplayerPage] received state event", channelName, s);
@@ -141,11 +163,36 @@ export default function MultiplayerPage() {
           if (Array.isArray(p)) return p.map(String);
           return [] as string[];
         })();
+
         if (players.length >= MAX_PLAYERS) {
-          console.info("[MultiplayerPage] state indicates room is full, redirecting to match", own.id);
-          router.push(`/multiplayer/${own.id}`);
+          console.info("[MultiplayerPage] state indicates room is full — showing start modal", own.id);
+          // show modal and schedule redirect in 3s
+          setPendingMatchRedirect(own.id);
+          setStartModalVisible(true);
+          // clear any previous timer
+          if (startTimeoutRef.current) {
+            window.clearTimeout(startTimeoutRef.current);
+            startTimeoutRef.current = null;
+          }
+          startTimeoutRef.current = window.setTimeout(() => {
+            const target = own.id;
+            setStartModalVisible(false);
+            setPendingMatchRedirect(null);
+            try {
+              router.push(`/multiplayer/${target}`);
+            } catch (err) {
+              console.error('[MultiplayerPage] router.push failed', err);
+            }
+          }, 3000);
         } else {
           console.debug("[MultiplayerPage] state players count", players.length);
+          // cancel any pending redirect/modal if room is no longer full
+          if (startTimeoutRef.current) {
+            window.clearTimeout(startTimeoutRef.current);
+            startTimeoutRef.current = null;
+          }
+          setStartModalVisible(false);
+          setPendingMatchRedirect(null);
         }
       } catch (e) {
         console.error("[MultiplayerPage] onStateEvent error", e);
@@ -179,6 +226,16 @@ export default function MultiplayerPage() {
     };
   }, [normalizedRooms, myNick, router, MAX_PLAYERS]);
 
+  // cleanup on unmount: clear any pending start timeout
+  useEffect(() => {
+    return () => {
+      if (startTimeoutRef.current) {
+        window.clearTimeout(startTimeoutRef.current);
+        startTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   const handleDeleteOwn = useCallback(async () => {
     if (!confirm("Supprimer votre salle ?")) return;
     setRoomLoading(true);
@@ -189,7 +246,29 @@ export default function MultiplayerPage() {
         setRoomMessage("Aucune salle à supprimer");
         return;
       }
-      console.info("[MultiplayerPage] deleting own match", own.id);
+            {/* Start countdown modal shown to creator before redirect */}
+            <StartCountdownModal
+              visible={startModalVisible}
+              seconds={3}
+              onFinished={() => {
+                if (!pendingMatchRedirect) return setStartModalVisible(false);
+                const target = pendingMatchRedirect;
+                setStartModalVisible(false);
+                setPendingMatchRedirect(null);
+                // clear any timer
+                if (startTimeoutRef.current) {
+                  window.clearTimeout(startTimeoutRef.current);
+                  startTimeoutRef.current = null;
+                }
+                try {
+                  router.push(`/multiplayer/${target}`);
+                } catch (err) {
+                  console.error('[MultiplayerPage] onFinished redirect failed', err);
+                }
+              }}
+            />
+
+            {/* Lines 205-249 omitted */}
       await deleteMatch(String(own.id), myNick ?? "");
       setRoomMessage("Salle supprimée");
       await refreshRooms();
