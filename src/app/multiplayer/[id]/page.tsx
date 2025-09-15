@@ -144,6 +144,40 @@ export default function MatchRoomPage() {
   const chYou = mySide === "e" ? state?.charge.e ?? 0 : mySide === "p" ? state?.charge.p ?? 0 : 0;
   const chEnemy = mySide === "e" ? state?.charge.p ?? 0 : mySide === "p" ? state?.charge.e ?? 0 : 0;
 
+  // Compute display names for the two sides from state.players (fallback to state.names or raw id)
+  const playersArr = (state?.players ?? []) as string[];
+  let displayNameYou = "Vous";
+  let displayNameOpponent = "Adversaire";
+  try {
+    if (playersArr.length > 0) {
+      const localNick = typeof window !== "undefined" ? localStorage.getItem("nickname") : null;
+      // try to find our index in the players array using a few fallbacks
+      let myIdx = -1;
+      if (playerId && playersArr.includes(playerId)) myIdx = playersArr.indexOf(playerId);
+      else if (localNick && playersArr.includes(localNick)) myIdx = playersArr.indexOf(localNick);
+      else if (localNick && state?.names && typeof state.names === "object") {
+        const found = Object.keys(state.names).find((k) => state.names && state.names[k] === localNick);
+        if (found && playersArr.includes(found)) myIdx = playersArr.indexOf(found);
+      }
+      // if still not found, but players look like nicknames (strings), try matching by equality to playerId/localNick above already done
+      // decide opponent index
+      const oppIdx = myIdx === 0 ? 1 : 0;
+      const namesMap = state?.names && typeof state.names === "object" ? (state.names as Record<string, string>) : null;
+      if (myIdx >= 0 && typeof playersArr[myIdx] === "string") {
+        const p = playersArr[myIdx];
+        const mapped = namesMap && typeof p === "string" ? namesMap[p] : undefined;
+        displayNameYou = mapped ?? p ?? "Vous";
+      } else if (myIdx === -1 && typeof localNick === "string" && localNick.length > 0 && playersArr.includes(localNick)) {
+        displayNameYou = localNick;
+      }
+      if (typeof playersArr[oppIdx] === "string") {
+        const p = playersArr[oppIdx];
+        const mappedOpp = namesMap && typeof p === "string" ? namesMap[p] : undefined;
+        displayNameOpponent = mappedOpp ?? p ?? "Adversaire";
+      }
+    }
+  } catch {}
+
   const maxSpend = Math.min(3, Math.max(0, chYou));
 
   const ringIf = (a: number) =>
@@ -377,13 +411,13 @@ export default function MatchRoomPage() {
         {/* Statut et jauges */}
         <section className="grid grid-cols-2 gap-6 mb-8">
           <div className="rounded-xl border border-slate-800 p-5 bg-slate-900/60">
-            <div className="text-sm mb-2">Vous</div>
+            <div className="text-sm mb-2">{displayNameYou}</div>
             <HealthBar hp={hpYou} max={20} color="emerald" />
             <div className="mt-3 text-xs text-slate-400">Charge</div>
             <ChargePips value={chYou} color="emerald" />
           </div>
           <div className="rounded-xl border border-slate-800 p-5 bg-slate-900/60">
-            <div className="text-sm mb-2">Adversaire</div>
+            <div className="text-sm mb-2">{displayNameOpponent}</div>
             <HealthBar hp={hpEnemy} max={20} color="rose" />
             <div className="mt-3 text-xs text-slate-400">Charge</div>
             <ChargePips value={chEnemy} color="rose" />
