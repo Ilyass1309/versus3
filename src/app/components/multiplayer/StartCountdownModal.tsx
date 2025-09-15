@@ -13,6 +13,7 @@ export default function StartCountdownModal({ visible, seconds = 3, onFinished }
   useEffect(() => {
     let t: number | undefined;
     if (visible) {
+      console.debug('[StartCountdownModal] mounted, starting countdown', { seconds });
       setCount(seconds);
       // tick every 1s until 0
       t = window.setInterval(() => {
@@ -20,7 +21,10 @@ export default function StartCountdownModal({ visible, seconds = 3, onFinished }
       }, 1000);
     }
     return () => {
-      if (t !== undefined) window.clearInterval(t);
+      if (t !== undefined) {
+        window.clearInterval(t);
+        console.debug('[StartCountdownModal] unmounted or stopped, cleared interval');
+      }
     };
   }, [visible, seconds]);
 
@@ -28,13 +32,18 @@ export default function StartCountdownModal({ visible, seconds = 3, onFinished }
   useEffect(() => {
     let timeoutId: number | undefined;
     if (visible && count === 0) {
+      console.info('[StartCountdownModal] countdown reached 0, calling onFinished shortly');
       // slight delay so UI shows 0 briefly
       timeoutId = window.setTimeout(() => {
+        console.info('[StartCountdownModal] invoking onFinished');
         onFinished?.();
       }, 300);
     }
     return () => {
-      if (timeoutId !== undefined) clearTimeout(timeoutId);
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+        console.debug('[StartCountdownModal] cleared finish timeout');
+      }
     };
   }, [count, visible, onFinished]);
 

@@ -74,11 +74,14 @@ export default function MultiplayerPage() {
         // Show the start modal to the joiner as well, then redirect after 3s
         setPendingMatchRedirect(id);
         setStartModalVisible(true);
+        console.debug('[MultiplayerPage] joiner will see start modal, scheduling redirect in 3s', id);
         if (startTimeoutRef.current) {
+          console.debug('[MultiplayerPage] clearing previous start timeout before scheduling new one');
           window.clearTimeout(startTimeoutRef.current);
           startTimeoutRef.current = null;
         }
         startTimeoutRef.current = window.setTimeout(() => {
+          console.info('[MultiplayerPage] joiner start modal timeout expired, redirecting to', id);
           setStartModalVisible(false);
           setPendingMatchRedirect(null);
           try {
@@ -169,6 +172,7 @@ export default function MultiplayerPage() {
           // show modal and schedule redirect in 3s
           setPendingMatchRedirect(own.id);
           setStartModalVisible(true);
+          console.debug('[MultiplayerPage] scheduled start modal for', own.id);
           // clear any previous timer
           if (startTimeoutRef.current) {
             window.clearTimeout(startTimeoutRef.current);
@@ -176,6 +180,7 @@ export default function MultiplayerPage() {
           }
           startTimeoutRef.current = window.setTimeout(() => {
             const target = own.id;
+            console.info('[MultiplayerPage] start modal timeout expired, redirecting to', target);
             setStartModalVisible(false);
             setPendingMatchRedirect(null);
             try {
@@ -188,6 +193,7 @@ export default function MultiplayerPage() {
           console.debug("[MultiplayerPage] state players count", players.length);
           // cancel any pending redirect/modal if room is no longer full
           if (startTimeoutRef.current) {
+            console.info('[MultiplayerPage] cancelling pending start modal/redirect for', own.id);
             window.clearTimeout(startTimeoutRef.current);
             startTimeoutRef.current = null;
           }
@@ -246,29 +252,7 @@ export default function MultiplayerPage() {
         setRoomMessage("Aucune salle à supprimer");
         return;
       }
-            {/* Start countdown modal shown to creator before redirect */}
-            <StartCountdownModal
-              visible={startModalVisible}
-              seconds={3}
-              onFinished={() => {
-                if (!pendingMatchRedirect) return setStartModalVisible(false);
-                const target = pendingMatchRedirect;
-                setStartModalVisible(false);
-                setPendingMatchRedirect(null);
-                // clear any timer
-                if (startTimeoutRef.current) {
-                  window.clearTimeout(startTimeoutRef.current);
-                  startTimeoutRef.current = null;
-                }
-                try {
-                  router.push(`/multiplayer/${target}`);
-                } catch (err) {
-                  console.error('[MultiplayerPage] onFinished redirect failed', err);
-                }
-              }}
-            />
-
-            {/* Lines 205-249 omitted */}
+        
       await deleteMatch(String(own.id), myNick ?? "");
       setRoomMessage("Salle supprimée");
       await refreshRooms();
@@ -281,6 +265,27 @@ export default function MultiplayerPage() {
 
   return (
     <GameShell>
+      {/* Start countdown modal shown to creator/joiner before redirect */}
+      <StartCountdownModal
+        visible={startModalVisible}
+        seconds={3}
+        onFinished={() => {
+          if (!pendingMatchRedirect) return setStartModalVisible(false);
+          const target = pendingMatchRedirect;
+          setStartModalVisible(false);
+          setPendingMatchRedirect(null);
+          // clear any timer
+          if (startTimeoutRef.current) {
+            window.clearTimeout(startTimeoutRef.current);
+            startTimeoutRef.current = null;
+          }
+          try {
+            router.push(`/multiplayer/${target}`);
+          } catch (err) {
+            console.error('[MultiplayerPage] onFinished redirect failed', err);
+          }
+        }}
+      />
       <div className="w-full flex flex-col lg:flex-row gap-6 mt-4">
         <main className="flex-1 order-2 lg:order-2 bg-slate-900 text-slate-100 rounded-lg shadow-lg p-6 min-h-[60vh]">
           <div className="flex items-start justify-between gap-4 mb-6">
