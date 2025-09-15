@@ -146,15 +146,15 @@ export default function MultiplayerPage() {
     };
 
     if (channel) {
-      channel.bind("player_joined", onJoined as any);
-      channel.bind("match_started", onJoined as any);
+      channel.bind("player_joined", onJoined);
+      channel.bind("match_started", onJoined);
     }
 
     return () => {
       try {
         if (channel) {
-          channel.unbind("player_joined", onJoined as any);
-          channel.unbind("match_started", onJoined as any);
+          channel.unbind("player_joined", onJoined);
+          channel.unbind("match_started", onJoined);
         }
         if (pusher) {
           try { pusher.unsubscribe?.(channelName); } catch {}
@@ -163,7 +163,7 @@ export default function MultiplayerPage() {
         console.warn("[MultiplayerPage] cleanup error", e);
       }
     };
-  }, [normalizedRooms, myNick, router]);
+  }, [normalizedRooms, myNick, router, MAX_PLAYERS]);
 
   const handleDeleteOwn = useCallback(async () => {
     if (!confirm("Supprimer votre salle ?")) return;
