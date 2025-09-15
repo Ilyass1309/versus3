@@ -134,7 +134,13 @@ export default function MultiplayerPage() {
     const onStateEvent = (s: { players?: string[] } | unknown) => {
       try {
         console.info("[MultiplayerPage] received state event", channelName, s);
-        const players = (s && typeof s === "object" && Array.isArray((s as any).players)) ? (s as any).players as string[] : [];
+        const players = (() => {
+          if (!s || typeof s !== "object") return [] as string[];
+          const obj = s as Record<string, unknown>;
+          const p = obj.players;
+          if (Array.isArray(p)) return p.map(String);
+          return [] as string[];
+        })();
         if (players.length >= MAX_PLAYERS) {
           console.info("[MultiplayerPage] state indicates room is full, redirecting to match", own.id);
           router.push(`/multiplayer/${own.id}`);
