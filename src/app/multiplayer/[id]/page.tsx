@@ -104,16 +104,21 @@ export default function MatchRoomPage() {
     for (const pid of keys) {
       const r = revMap[pid];
       if (!r) continue; // sécurité: clé manquante
-      // Prefer server nickname; fallback to a sensible label
-      const who = names[pid] ?? (pid === playerId ? "Vous" : "Adversaire");
+  // Prefer server nickname; fallback to the pid string (often the nickname),
+  // or "Vous" if it matches our socket id
+  const who = names[pid] ?? (pid === playerId ? "Vous" : pid ?? "Adversaire");
   console.info('[MatchRoomPage] reveal effect: pid', pid, '-> display as', who, 'names[pid]=', names[pid]);
       entries.push(`${who}: ${describe(r.action, r.spend)}`);
     }
 
     // Use ordered players from state to label HP/Charge lines with real pseudos when available
     const playersOrder = state?.players ?? [];
-    const nameP = playersOrder[0] ? (names[playersOrder[0]] ?? playersOrder[0]) : "Joueur P";
-    const nameE = playersOrder[1] ? (names[playersOrder[1]] ?? playersOrder[1]) : "Joueur E";
+    const nameP = playersOrder[0]
+      ? (names[playersOrder[0]] ?? (playersOrder[0] === playerId ? "Vous" : playersOrder[0]))
+      : "Joueur P";
+    const nameE = playersOrder[1]
+      ? (names[playersOrder[1]] ?? (playersOrder[1] === playerId ? "Vous" : playersOrder[1]))
+      : "Joueur E";
 
   const header = `Tour ${reveal.turn} — Résolution`;
     const hpLine = `HP: ${nameP} ${reveal.hp.p} · ${nameE} ${reveal.hp.e} · Charge: ${nameP} ${reveal.charge.p} · ${nameE} ${reveal.charge.e}`;
@@ -179,7 +184,12 @@ export default function MatchRoomPage() {
     if (res === "p" || res === "e") {
       const idx = res === "p" ? 0 : 1;
       const wid = players[idx];
-      const winName = (wid && names[wid]) ? names[wid] : (wid === playerId ? "Vous" : (idx === 0 ? "Joueur P" : "Joueur E"));
+      let winName: string;
+      if (wid) {
+        winName = names[wid] ?? (wid === playerId ? "Vous" : wid);
+      } else {
+        winName = idx === 0 ? "Joueur P" : "Joueur E";
+      }
   console.info('[MatchRoomPage] winnerLine: result', res, 'winner id', wid, 'resolved name', winName);
       return `Victoire: ${winName}`;
     }
@@ -189,13 +199,13 @@ export default function MatchRoomPage() {
     if (hp.p <= 0 && hp.e <= 0) return "Match nul";
     if (hp.p > hp.e) {
       const wid = players[0];
-      const name = wid ? (names[wid] ?? (wid === playerId ? "Vous" : "Joueur P")) : "Joueur P";
+  const name = wid ? (names[wid] ?? (wid === playerId ? "Vous" : wid)) : "Joueur P";
   console.info('[MatchRoomPage] winnerLine: hp-based winner side=p, id', wid, 'name', name);
       return `Victoire: ${name}`;
     }
     if (hp.e > hp.p) {
       const wid = players[1];
-      const name = wid ? (names[wid] ?? (wid === playerId ? "Vous" : "Joueur E")) : "Joueur E";
+  const name = wid ? (names[wid] ?? (wid === playerId ? "Vous" : wid)) : "Joueur E";
   console.info('[MatchRoomPage] winnerLine: hp-based winner side=e, id', wid, 'name', name);
       return `Victoire: ${name}`;
     }
