@@ -72,12 +72,11 @@ export default function MatchRoomPage() {
   // Journal de bord
   const [log, setLog] = useState<string[]>([]);
 
-  // Détermine les noms "Vous" / "Adversaire" à partir des playerIds reçus dans reveal
+  // Build resolution log lines using server-provided pseudos (state.names) when available
   useEffect(() => {
     if (!reveal) return;
     const entries: string[] = [];
 
-    const youId = playerId;
     const keys = Object.keys(reveal.reveal ?? {});
     if (keys.length === 0) return;
 
@@ -87,20 +86,27 @@ export default function MatchRoomPage() {
       return `${base}`;
     };
 
+    const names: Record<string, string> = state?.names ?? {};
     const revMap = reveal.reveal as Record<string, { action: number; spend: number }>;
     for (const pid of keys) {
       const r = revMap[pid];
       if (!r) continue; // sécurité: clé manquante
-      const who = pid === youId ? "Vous" : "Adversaire";
+      // Prefer server nickname; fallback to a sensible label
+      const who = names[pid] ?? (pid === playerId ? "Vous" : "Adversaire");
       entries.push(`${who}: ${describe(r.action, r.spend)}`);
     }
 
+    // Use ordered players from state to label HP/Charge lines with real pseudos when available
+    const playersOrder = state?.players ?? [];
+    const nameP = playersOrder[0] ? (names[playersOrder[0]] ?? playersOrder[0]) : "Joueur P";
+    const nameE = playersOrder[1] ? (names[playersOrder[1]] ?? playersOrder[1]) : "Joueur E";
+
     const header = `Tour ${reveal.turn} — Résolution`;
-    const hpLine = `HP: Vous ${reveal.hp.p} · Adversaire ${reveal.hp.e} · Charge: Vous ${reveal.charge.p} · Adv ${reveal.charge.e}`;
+    const hpLine = `HP: ${nameP} ${reveal.hp.p} · ${nameE} ${reveal.hp.e} · Charge: ${nameP} ${reveal.charge.p} · ${nameE} ${reveal.charge.e}`;
     const result = reveal.done ? `Fin de partie: ${reveal.result ?? "—"}` : "";
 
     setLog(prev => [header, ...entries, hpLine, ...(result ? [result] : []), ...prev].slice(0, 200));
-  }, [reveal, playerId]);
+  }, [reveal, playerId, state]);
 
   // Réinitialiser la sélection et le spend après retour en phase "collect"
   const phase = state?.phase;
@@ -157,7 +163,7 @@ export default function MatchRoomPage() {
     if (res === "p" || res === "e") {
       const idx = res === "p" ? 0 : 1;
       const wid = players[idx];
-      const winName = (wid && names[wid]) || (idx === 0 ? "Joueur P" : "Joueur E");
+      const winName = (wid && names[wid]) ? names[wid] : (wid === playerId ? "Vous" : (idx === 0 ? "Joueur P" : "Joueur E"));
       return `Victoire: ${winName}`;
     }
     // Fallback: calcule via HP
@@ -166,11 +172,13 @@ export default function MatchRoomPage() {
     if (hp.p <= 0 && hp.e <= 0) return "Match nul";
     if (hp.p > hp.e) {
       const wid = players[0];
-      return `Victoire: ${wid ? names[wid] ?? "Joueur P" : "Joueur P"}`;
+      const name = wid ? (names[wid] ?? (wid === playerId ? "Vous" : "Joueur P")) : "Joueur P";
+      return `Victoire: ${name}`;
     }
     if (hp.e > hp.p) {
       const wid = players[1];
-      return `Victoire: ${wid ? names[wid] ?? "Joueur E" : "Joueur E"}`;
+      const name = wid ? (names[wid] ?? (wid === playerId ? "Vous" : "Joueur E")) : "Joueur E";
+      return `Victoire: ${name}`;
     }
     return undefined;
   }
