@@ -87,12 +87,16 @@ export default function MatchRoomPage() {
     };
 
     const names: Record<string, string> = state?.names ?? {};
+    console.debug('[MatchRoomPage] reveal effect: state.names =', names);
+    console.debug('[MatchRoomPage] reveal effect: state.players =', state?.players);
+    console.debug('[MatchRoomPage] reveal effect: local playerId =', playerId);
     const revMap = reveal.reveal as Record<string, { action: number; spend: number }>;
     for (const pid of keys) {
       const r = revMap[pid];
       if (!r) continue; // sécurité: clé manquante
       // Prefer server nickname; fallback to a sensible label
       const who = names[pid] ?? (pid === playerId ? "Vous" : "Adversaire");
+      console.debug('[MatchRoomPage] reveal effect: pid', pid, '-> display as', who, 'names[pid]=', names[pid]);
       entries.push(`${who}: ${describe(r.action, r.spend)}`);
     }
 
@@ -101,9 +105,10 @@ export default function MatchRoomPage() {
     const nameP = playersOrder[0] ? (names[playersOrder[0]] ?? playersOrder[0]) : "Joueur P";
     const nameE = playersOrder[1] ? (names[playersOrder[1]] ?? playersOrder[1]) : "Joueur E";
 
-    const header = `Tour ${reveal.turn} — Résolution`;
+  const header = `Tour ${reveal.turn} — Résolution`;
     const hpLine = `HP: ${nameP} ${reveal.hp.p} · ${nameE} ${reveal.hp.e} · Charge: ${nameP} ${reveal.charge.p} · ${nameE} ${reveal.charge.e}`;
     const result = reveal.done ? `Fin de partie: ${reveal.result ?? "—"}` : "";
+  console.debug('[MatchRoomPage] reveal effect: composed header/hpLine/result', { header, hpLine, result });
 
     setLog(prev => [header, ...entries, hpLine, ...(result ? [result] : []), ...prev].slice(0, 200));
   }, [reveal, playerId, state]);
@@ -158,12 +163,14 @@ export default function MatchRoomPage() {
   function winnerLine() {
     const players = state?.players ?? [];
     const names: Record<string, string> = state?.names ?? {};
+    console.debug('[MatchRoomPage] winnerLine: state.names =', names, 'state.players =', players, 'playerId =', playerId);
     // Priorité au résultat de reveal si présent
     const res = reveal?.result;
     if (res === "p" || res === "e") {
       const idx = res === "p" ? 0 : 1;
       const wid = players[idx];
       const winName = (wid && names[wid]) ? names[wid] : (wid === playerId ? "Vous" : (idx === 0 ? "Joueur P" : "Joueur E"));
+      console.debug('[MatchRoomPage] winnerLine: result', res, 'winner id', wid, 'resolved name', winName);
       return `Victoire: ${winName}`;
     }
     // Fallback: calcule via HP
@@ -173,11 +180,13 @@ export default function MatchRoomPage() {
     if (hp.p > hp.e) {
       const wid = players[0];
       const name = wid ? (names[wid] ?? (wid === playerId ? "Vous" : "Joueur P")) : "Joueur P";
+      console.debug('[MatchRoomPage] winnerLine: hp-based winner side=p, id', wid, 'name', name);
       return `Victoire: ${name}`;
     }
     if (hp.e > hp.p) {
       const wid = players[1];
       const name = wid ? (names[wid] ?? (wid === playerId ? "Vous" : "Joueur E")) : "Joueur E";
+      console.debug('[MatchRoomPage] winnerLine: hp-based winner side=e, id', wid, 'name', name);
       return `Victoire: ${name}`;
     }
     return undefined;
