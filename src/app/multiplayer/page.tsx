@@ -130,31 +130,39 @@ export default function MultiplayerPage() {
       channel = null;
     }
 
-    const onJoined = (payload?: unknown) => {
-      // any player_joined / match_started event for this channel should redirect creator
+    // handle state events (authoritative): redirect when server state shows room full
+    const onStateEvent = (s: { players?: string[] } | unknown) => {
       try {
-        console.info("[MultiplayerPage] onJoined event on channel", channelName, { payload, own });
-        // Only redirect if we are the host/creator and the room is now full
-        const nowFull = own && own.players && own.players.length >= MAX_PLAYERS;
-        console.debug("[MultiplayerPage] redirect decision", { own, nowFull });
-        if (nowFull) {
+        console.info("[MultiplayerPage] received state event", channelName, s);
+        const players = (s && typeof s === "object" && Array.isArray((s as any).players)) ? (s as any).players as string[] : [];
+        if (players.length >= MAX_PLAYERS) {
+          console.info("[MultiplayerPage] state indicates room is full, redirecting to match", own.id);
           router.push(`/multiplayer/${own.id}`);
+        } else {
+          console.debug("[MultiplayerPage] state players count", players.length);
         }
       } catch (e) {
-        console.error("[MultiplayerPage] onJoined handler error", e);
+        console.error("[MultiplayerPage] onStateEvent error", e);
       }
     };
 
+    // keep player_joined for logging but use state as the source of truth for redirect
+    const onPlayerJoined = (payload?: unknown) => {
+      console.info("[MultiplayerPage] player_joined payload", channelName, payload);
+    };
+
     if (channel) {
-      channel.bind("player_joined", onJoined);
-      channel.bind("match_started", onJoined);
+      channel.bind("state", onStateEvent);
+      channel.bind("player_joined", onPlayerJoined);
+      channel.bind("match_started", onStateEvent);
     }
 
     return () => {
       try {
         if (channel) {
-          channel.unbind("player_joined", onJoined);
-          channel.unbind("match_started", onJoined);
+          channel.unbind("player_joined", onPlayerJoined);
+          channel.unbind("match_started", onStateEvent);
+          channel.unbind("state", onStateEvent);
         }
         if (pusher) {
           try { pusher.unsubscribe?.(channelName); } catch {}
