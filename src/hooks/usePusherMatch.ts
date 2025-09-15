@@ -110,8 +110,11 @@ export function usePusherMatch(matchId: string | null) {
       if (!matchId || !playerId) return;
 
       // Détermine mon côté pour lire la charge
+      // Prefer using the user's nickname as identifier (server stores nicknames), fallback to socket id
+      const playerName = (user?.nickname) ?? (typeof window !== "undefined" ? localStorage.getItem("nickname") : null);
+      const identifierForServer = (typeof playerName === "string" && playerName.length > 0) ? playerName : playerId;
       const mySide: "p" | "e" | null = (() => {
-        const idx = state?.players?.indexOf?.(playerId) ?? -1;
+        const idx = state?.players?.indexOf?.(identifierForServer) ?? -1;
         return idx === 0 ? "p" : idx === 1 ? "e" : null;
       })();
 
@@ -125,17 +128,20 @@ export function usePusherMatch(matchId: string | null) {
       await fetch("/api/match/action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ matchId, playerId, action, spend: s ?? 0 }),
+        body: JSON.stringify({ matchId, playerId: identifierForServer, action, spend: s ?? 0 }),
       });
     },
     [matchId, playerId, state]
   );
 
-  const isJoined = !!(state?.players?.includes?.(playerId));
+  // Determine joined state and side using nickname when available
+  const playerName = (user?.nickname) ?? (typeof window !== "undefined" ? localStorage.getItem("nickname") : null);
+  const identifierForServer = (typeof playerName === "string" && playerName.length > 0) ? playerName : playerId;
+  const isJoined = !!(state?.players?.includes?.(identifierForServer));
   const mySide = useMemo<"p" | "e" | null>(() => {
-    const idx = state?.players?.indexOf?.(playerId) ?? -1;
+    const idx = state?.players?.indexOf?.(identifierForServer) ?? -1;
     return idx === 0 ? "p" : idx === 1 ? "e" : null;
-  }, [state?.players, playerId]);
+  }, [state?.players, identifierForServer]);
 
   useEffect(() => {
     console.debug('[usePusherMatch] status', { matchId, playerId, joined: joinedRef.current, isJoined, state });
