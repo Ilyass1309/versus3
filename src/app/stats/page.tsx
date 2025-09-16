@@ -118,20 +118,22 @@ export default function StatsPage() {
       if (r.ok) {
         const j = await r.json();
         // ensure episodes are numbers
-        const pts: TrainingPoint[] = (j.points || []).map((p: any) => ({
-          ...p,
-          episode: Number(p.episode ?? 0),
-          coverage: Number(p.coverage ?? 0),
-          states: Number(p.states ?? 0),
-          minV: Number(p.minV ?? 0),
-          maxV: Number(p.maxV ?? 0),
-          avgV: Number(p.avgV ?? 0),
-          epsilon: Number(p.epsilon ?? 0),
-          newStates: Number(p.newStates ?? 0),
-          stagnate: Number(p.stagnate ?? 0),
-          gini: Number(p.gini ?? 0),
-          timestamp: Number(p.timestamp ?? 0),
-        }));
+        const pts: TrainingPoint[] = (j.points || []).map((p: unknown) => {
+          const o = p as Record<string, unknown>;
+          return {
+            episode: Number(o.episode ?? 0),
+            coverage: Number(o.coverage ?? 0),
+            states: Number(o.states ?? 0),
+            minV: Number(o.minV ?? 0),
+            maxV: Number(o.maxV ?? 0),
+            avgV: Number(o.avgV ?? 0),
+            epsilon: Number(o.epsilon ?? 0),
+            newStates: Number(o.newStates ?? 0),
+            stagnate: Number(o.stagnate ?? 0),
+            gini: Number(o.gini ?? 0),
+            timestamp: Number(o.timestamp ?? 0),
+          } as TrainingPoint;
+        });
         setHistory(pts);
       }
     } finally {
