@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getPusher } from "@/lib/pusher-client";
 import { usePusherMatch } from "@/hooks/usePusherMatch";
@@ -56,6 +56,7 @@ function ChargePips({ value, color = "emerald" }: { value: number; color?: "emer
 }
 
 export default function MatchRoomPage() {
+  const awardSentRef = useRef(false);
   const params = useParams<{ id: string }>();
   const id = params.id;
   const { playerId, state, resolving, reveal, rematch, sendAction, isJoined, mySide } = usePusherMatch(id);
@@ -253,6 +254,54 @@ export default function MatchRoomPage() {
       setEnded((p) => ({ ...p, open: true, result: reveal?.result ?? p.result }));
     }
   }, [state?.phase, reveal?.done, reveal?.result]);
+
+  // When the match ends, award a multiplayer point to the winner (once).
+  useEffect(() => {
+    if (!ended.open || awardSentRef.current) return;
+    try {
+      const players = state?.players ?? [];
+      const names = state?.names ?? {};
+      let winnerNick: string | null = null;
+
+      // Prefer reveal.result when present
+      const res = reveal?.result;
+      if (res === "p" || res === "e") {
+        const idx = res === "p" ? 0 : 1;
+        const wid = players[idx];
+        if (wid) winnerNick = (names && names[wid]) ?? wid;
+      } else {
+        // Fallback to HP comparison
+        const hp = reveal?.hp ?? state?.hp;
+        if (hp) {
+          if (hp.p > hp.e) {
+            const wid = players[0];
+            if (wid) winnerNick = (names && names[wid]) ?? wid;
+          } else if (hp.e > hp.p) {
+            const wid = players[1];
+            if (wid) winnerNick = (names && names[wid]) ?? wid;
+          }
+        }
+      }
+
+      if (winnerNick && winnerNick !== "Match nul") {
+        // Best-effort: ensure we send a plain nickname string
+        console.info("[MatchRoomPage] awarding point to", winnerNick, "match", id);
+        fetch("/api/match/award", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ matchId: id, winner: winnerNick }),
+        })
+          .then((r) => r.json())
+          .then((j) => console.info("[MatchRoomPage] award response", j))
+          .catch((e) => console.error("[MatchRoomPage] award failed", e));
+        awardSentRef.current = true;
+      } else {
+        console.info("[MatchRoomPage] no winner nickname found to award", { winnerNick });
+      }
+    } catch (e) {
+      console.error("[MatchRoomPage] award effect error", e);
+    }
+  }, [ended.open, state?.players, state?.names, reveal, id]);
 
   // Si le serveur redémarre la partie → fermer le popup et réinitialiser l’attente
   useEffect(() => {

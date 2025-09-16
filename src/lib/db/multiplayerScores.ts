@@ -31,7 +31,7 @@ export async function addMultiplayerPointsToUserId(userId: number, delta: number
   await addMultiplayerPointsToNickname(row.nickname, delta);
 }
 
-export async function getMultiplayerLeaderboard(limit = 10): Promise<Array<{ nickname: string; points: number }>> {
+export async function getMultiplayerLeaderboard(limit = 20): Promise<Array<{ nickname: string; points: number }>> {
   await ensureMultiplayerPointsTable();
   const rows = await sql<{ nickname: string; points: number }>`
     SELECT nickname, points
