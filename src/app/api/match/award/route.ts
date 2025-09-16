@@ -18,7 +18,7 @@ export async function POST(req: Request) {
 
     // Accept winner if it matches a player id/nickname present in the match (best-effort)
     const players = m.players ?? [];
-    const names = (m as any).names ?? {};
+    const names = (m as unknown as { names?: Record<string, string> }).names ?? {};
     const allowed =
       players.includes(winner) ||
       Object.values(names).includes(winner) ||
