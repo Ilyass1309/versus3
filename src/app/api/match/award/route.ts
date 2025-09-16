@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { addMultiplayerPointsToNickname } from "@/lib/db/multiplayerScores";
-import { getMatch } from "@/lib/match-store";
+import { getMatch, setMatch } from "@/lib/match-store";
 
 export const runtime = "nodejs";
 
@@ -15,6 +15,13 @@ export async function POST(req: Request) {
 
     const m = await getMatch(matchId);
     if (!m) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+
+    // If we've already awarded this match, return success (idempotent)
+    // (uses a best-effort flag stored on the match object)
+    if ((m as unknown as { awarded?: boolean }).awarded) {
+      console.info("[match/award] already awarded, ignoring duplicate", { matchId, winner });
+      return NextResponse.json({ ok: true });
+    }
 
     // Accept winner if it matches a player id/nickname present in the match (best-effort)
     const players = m.players ?? [];
@@ -31,6 +38,13 @@ export async function POST(req: Request) {
 
     try {
       await addMultiplayerPointsToNickname(winner, 1);
+      // mark match as awarded to prevent duplicates
+      try {
+        (m as unknown as { awarded?: boolean }).awarded = true;
+        await setMatch(m);
+      } catch (e) {
+        console.warn("[match/award] failed to persist awarded flag", e);
+      }
       console.info("[match/award] awarded +1 point to", winner, "for match", matchId);
       return NextResponse.json({ ok: true });
     } catch (err) {
