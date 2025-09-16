@@ -122,19 +122,22 @@ export default function StatsPage() {
       const j = await res.json().catch(() => undefined);
       // index.json entries use coveragePct / avgVisits / minVisits / maxVisits
       const raw = j?.points ?? j ?? [];
-      const pts: TrainingPoint[] = (raw || []).map((o: any) => ({
-        episode: Number(o.episode ?? 0),
-        coverage: Number(o.coveragePct ?? o.coverage ?? 0),
-        states: Number(o.states ?? 0),
-        minV: Number(o.minVisits ?? o.minV ?? 0),
-        maxV: Number(o.maxVisits ?? o.maxV ?? 0),
-        avgV: Number(o.avgVisits ?? o.avgV ?? 0),
-        epsilon: Number(o.epsilon ?? 0),
-        newStates: 0,
-        stagnate: 0,
-        gini: 0,
-        timestamp: Number(o.timestamp ?? 0),
-      }));
+      const pts: TrainingPoint[] = (raw || []).map((o: unknown) => {
+        const obj = o as Record<string, unknown>;
+        return {
+          episode: Number(obj.episode ?? 0),
+          coverage: Number(obj.coveragePct ?? obj.coverage ?? 0),
+          states: Number(obj.states ?? 0),
+          minV: Number(obj.minVisits ?? obj.minV ?? 0),
+          maxV: Number(obj.maxVisits ?? obj.maxV ?? 0),
+          avgV: Number(obj.avgVisits ?? obj.avgV ?? 0),
+          epsilon: Number(obj.epsilon ?? 0),
+          newStates: 0,
+          stagnate: 0,
+          gini: 0,
+          timestamp: Number(obj.timestamp ?? 0),
+        } as TrainingPoint;
+      });
       setHistory(pts);
     } finally {
       setHistLoading(false);

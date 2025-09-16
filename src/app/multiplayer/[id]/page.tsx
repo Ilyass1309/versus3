@@ -311,7 +311,7 @@ export default function MatchRoomPage() {
     } catch (e) {
       console.error("[MatchRoomPage] award effect error", e);
     }
-  }, [ended.open, state?.players, state?.names, reveal, id]);
+  }, [ended.open, state?.players, state?.names, state?.hp, reveal, id]);
   
   // Si le serveur redémarre la partie → fermer le popup et réinitialiser l’attente
   useEffect(() => {

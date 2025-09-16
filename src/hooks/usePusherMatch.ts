@@ -131,7 +131,7 @@ export function usePusherMatch(matchId: string | null) {
         body: JSON.stringify({ matchId, playerId: identifierForServer, action, spend: s ?? 0 }),
       });
     },
-    [matchId, playerId, state]
+    [matchId, playerId, state, user?.nickname]
   );
 
   // Determine joined state and side using nickname when available
