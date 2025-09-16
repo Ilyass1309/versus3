@@ -284,17 +284,28 @@ export default function MatchRoomPage() {
       }
 
       if (winnerNick && winnerNick !== "Match nul") {
-        // Best-effort: ensure we send a plain nickname string
         console.info("[MatchRoomPage] awarding point to", winnerNick, "match", id);
-        fetch("/api/match/award", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ matchId: id, winner: winnerNick }),
-        })
-          .then((r) => r.json())
-          .then((j) => console.info("[MatchRoomPage] award response", j))
-          .catch((e) => console.error("[MatchRoomPage] award failed", e));
-        awardSentRef.current = true;
+        // use retry helper and only set awarded flag on success
+        tryAwardWithRetry(id, winnerNick, 2, 200)
+          .then(async (resp) => {
+            if (!resp) {
+              console.warn("[MatchRoomPage] award: no response after retries");
+              return;
+            }
+            const j = await resp.json().catch(() => null);
+            console.info("[MatchRoomPage] award response", resp.status, j);
+            if (resp.ok) {
+              awardSentRef.current = true;
+            } else if (resp.status === 503) {
+              // didn't acquire lock after retries — keep awardSentRef false so server/client can try later
+              console.info("[MatchRoomPage] award request busy after retries, not marking awarded");
+            } else {
+              console.warn("[MatchRoomPage] award failed", resp.status, j);
+            }
+          })
+          .catch((e) => {
+            console.error("[MatchRoomPage] award request final error", e);
+          });
       } else {
         console.info("[MatchRoomPage] no winner nickname found to award", { winnerNick });
       }
@@ -618,4 +629,35 @@ export default function MatchRoomPage() {
       </div>
     </div>
   );
+}
+
+// helper: retry simple + backoff when server returns 503
+async function tryAwardWithRetry(matchId: string, winnerNick: string, attempts = 2, baseDelay = 150) {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch("/api/match/award", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ matchId, winner: winnerNick }),
+      });
+      if (res.status === 503) {
+        if (i < attempts - 1) {
+          const backoff = baseDelay * Math.pow(2, i) + Math.random() * 100;
+          console.info("[MatchRoomPage] award request 503 — retrying in", Math.round(backoff), "ms");
+          await new Promise((r) => setTimeout(r, backoff));
+          continue;
+        }
+      }
+      return res;
+    } catch (err) {
+      if (i < attempts - 1) {
+        const backoff = baseDelay * Math.pow(2, i);
+        console.info("[MatchRoomPage] award request failed — retrying in", backoff, "ms", err);
+        await new Promise((r) => setTimeout(r, backoff));
+        continue;
+      }
+      throw err;
+    }
+  }
+  return null;
 }

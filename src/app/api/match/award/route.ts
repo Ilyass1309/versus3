@@ -16,7 +16,8 @@ export async function POST(req: Request) {
     // Acquire lock to avoid double-award races
     const release = await acquireMatchLock(matchId, 2);
     if (!release) {
-      console.warn("[match/award] could not acquire lock, try again later", { matchId, winner });
+      // Lock busy is expected occasionally — use info to avoid alarming logs.
+      console.info("[match/award] lock busy, client should retry once", { matchId, winner });
       return NextResponse.json({ ok: false, error: "busy" }, { status: 503 });
     }
 
