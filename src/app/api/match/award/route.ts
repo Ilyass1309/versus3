@@ -16,8 +16,16 @@ export async function POST(req: Request) {
     // Acquire lock to avoid double-award races
     const release = await acquireMatchLock(matchId, 2);
     if (!release) {
-      // Lock busy is expected occasionally — use info to avoid alarming logs.
-      console.info("[match/award] lock busy, client should retry once", { matchId, winner });
+      // check current match state once before returning — if already awarded, return success
+      try {
+        const existing = await getMatch(matchId);
+        if (existing && (existing as unknown as { awarded?: boolean }).awarded) {
+          return NextResponse.json({ ok: true });
+        }
+      } catch {
+        // ignore errors here, fallthrough to returning busy
+      }
+      // do not warn/log loudly here; busy is expected in concurrent cases
       return NextResponse.json({ ok: false, error: "busy" }, { status: 503 });
     }
 
@@ -27,7 +35,6 @@ export async function POST(req: Request) {
 
       // If already awarded -> idempotent success
       if ((m as unknown as { awarded?: boolean }).awarded) {
-        console.info("[match/award] already awarded, ignoring duplicate", { matchId, winner });
         return NextResponse.json({ ok: true });
       }
 
