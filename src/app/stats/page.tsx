@@ -113,10 +113,26 @@ export default function StatsPage() {
   const loadHistory = useCallback(async () => {
     setHistLoading(true);
     try {
-      const r = await fetch("/api/training/history", { cache: "no-store" });
+      // request full history from the API (backend must support ?full=1)
+      const r = await fetch("/api/training/history?full=1", { cache: "no-store" });
       if (r.ok) {
         const j = await r.json();
-        setHistory(j.points || []);
+        // ensure episodes are numbers
+        const pts: TrainingPoint[] = (j.points || []).map((p: any) => ({
+          ...p,
+          episode: Number(p.episode ?? 0),
+          coverage: Number(p.coverage ?? 0),
+          states: Number(p.states ?? 0),
+          minV: Number(p.minV ?? 0),
+          maxV: Number(p.maxV ?? 0),
+          avgV: Number(p.avgV ?? 0),
+          epsilon: Number(p.epsilon ?? 0),
+          newStates: Number(p.newStates ?? 0),
+          stagnate: Number(p.stagnate ?? 0),
+          gini: Number(p.gini ?? 0),
+          timestamp: Number(p.timestamp ?? 0),
+        }));
+        setHistory(pts);
       }
     } finally {
       setHistLoading(false);
@@ -126,8 +142,28 @@ export default function StatsPage() {
   useEffect(()=> { loadHistory(); }, [loadHistory]);
 
   // --- Perspective IA ---
-  const aiWins = data?.totalLosses ?? 0;   // IA gagne quand le joueur perd
-  const aiLosses = data?.totalWins ?? 0;   // IA perd quand le joueur gagne
+  // Compute AI wins robustly:
+  // prefer explicit totalLosses when provided, otherwise derive:
+  // aiWins = totalGames - playerWins - draws
+  const aiWins = useMemo(() => {
+    if (!data) return 0;
+    if (typeof data.totalLosses === "number" && data.totalLosses > 0) return data.totalLosses;
+    const total = Number(data.totalGames ?? 0);
+    const pWins = Number(data.totalWins ?? 0);
+    const draws = Number(data.totalDraws ?? 0);
+    return Math.max(0, total - pWins - draws);
+  }, [data]);
+
+  const aiLosses = useMemo(() => {
+    // AI losses = player wins (preferred) or derive similarly
+    if (!data) return 0;
+    if (typeof data.totalWins === "number") return data.totalWins;
+    const total = Number(data.totalGames ?? 0);
+    const aiW = aiWins;
+    const draws = Number(data.totalDraws ?? 0);
+    return Math.max(0, total - aiW - draws);
+  }, [data, aiWins]);
+
   const aiWinRate = useMemo(() => {
     if (!data || data.totalGames === 0) return 0;
     return (aiWins / data.totalGames) * 100;
@@ -161,6 +197,15 @@ export default function StatsPage() {
   }
 
   const smoothed = useMemo(()=> smooth(history,"coverage",10), [history]);
+
+  // episode bounds for charts (min/max episode in the loaded history)
+  const episodeBounds = useMemo(() => {
+    if (!history || history.length === 0) return { min: 0, max: 0 };
+    const eps = history.map((h) => Number(h.episode ?? 0)).filter((v) => !Number.isNaN(v));
+    const min = eps.length ? Math.min(...eps) : 0;
+    const max = eps.length ? Math.max(...eps) : 0;
+    return { min, max };
+  }, [history]);
 
   const lastPoint = history.length ? history[history.length - 1] : null;
 
@@ -273,9 +318,18 @@ export default function StatsPage() {
             <div className="h-64">
               {histLoading ? <div className="w-full h-full animate-pulse bg-white/5 rounded"/> : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={smoothed}>
+                  {/* Use full-history (history) for the coverage chart with explicit XAxis numeric domain */}
+                  <LineChart data={history}>
                     <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
-                    <XAxis dataKey="episode" stroke="#94a3b8" fontSize={11}/>
+                    <XAxis
+                      type="number"
+                      dataKey="episode"
+                      stroke="#94a3b8"
+                      fontSize={11}
+                      domain={[episodeBounds.min || "dataMin", episodeBounds.max || "dataMax"]}
+                      allowDataOverflow
+                      tickFormatter={(v) => String(v)}
+                    />
                     <YAxis stroke="#94a3b8" fontSize={11} domain={[0, 100]} tickFormatter={v=>v+"%"} />
                     <Tooltip
                       contentStyle={{ background: "rgba(15,23,42,0.85)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }}
