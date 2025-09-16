@@ -2,7 +2,7 @@ export type LeaderboardEntry = { nickname: string; wins: number };
 
 export async function fetchLeaderboardEntries(): Promise<LeaderboardEntry[]> {
   try {
-    const res = await fetch("/api/leaderboard", { cache: "no-store" });
+    const res = await fetch("/api/scoreboard", { cache: "no-store" });
     if (!res.ok) return [];
     const json = await res.json();
     const raw = json.top ?? json.leaderboard ?? json.data ?? [];

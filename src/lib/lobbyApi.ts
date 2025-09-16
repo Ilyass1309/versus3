@@ -148,7 +148,7 @@ export async function deleteMatch(matchId: string, playerId: string): Promise<vo
 
 export async function fetchLeaderboard(): Promise<ScoreRow[]> {
   const body = await asJson<ScoreboardResponse>(
-    await fetch("/api/scoreboard", { cache: "no-store" }),
+    await fetch("/api/leaderboard", { cache: "no-store" }),
   );
   return (body.top ?? body.leaderboard ?? []) as ScoreRow[];
 }

@@ -36,11 +36,11 @@ interface StatsPayload {
   recentWinRates: { date: string; winRate: number }[];
   hyperparams: { alpha: number; gamma: number; epsilon: number };
   qtableSize: number;
-  qVersion: number | null;
-  lastUpdate: string | null;
+  qVersion?: number;         // use undefined instead of null
+  lastUpdate?: string;       // use undefined instead of null
   reachableMaxStates: number;
   coveragePct: number;
-  trainingEpisodes: number;        // <-- AJOUT
+  trainingEpisodes: number;
 }
 
 interface TrainingPoint {
@@ -71,7 +71,7 @@ function formatCompact(n: number): string {
 
 export default function StatsPage() {
   const r = useRouter();
-  const [data, setData] = useState<StatsPayload | null>(null);
+  const [data, setData] = useState<StatsPayload | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [hyper, setHyper] = useState({ alpha: 0, gamma: 0, epsilon: 0 });
   const [saving, setSaving] = useState(false);
@@ -110,32 +110,32 @@ export default function StatsPage() {
     }
   }
 
+  // load only the summary index (index.json) — keep charts using this data
   const loadHistory = useCallback(async () => {
     setHistLoading(true);
     try {
-      // request full history from the API (backend must support ?full=1)
-      const r = await fetch("/api/training/history?full=1", { cache: "no-store" });
-      if (r.ok) {
-        const j = await r.json();
-        // ensure episodes are numbers
-        const pts: TrainingPoint[] = (j.points || []).map((p: unknown) => {
-          const o = p as Record<string, unknown>;
-          return {
-            episode: Number(o.episode ?? 0),
-            coverage: Number(o.coverage ?? 0),
-            states: Number(o.states ?? 0),
-            minV: Number(o.minV ?? 0),
-            maxV: Number(o.maxV ?? 0),
-            avgV: Number(o.avgV ?? 0),
-            epsilon: Number(o.epsilon ?? 0),
-            newStates: Number(o.newStates ?? 0),
-            stagnate: Number(o.stagnate ?? 0),
-            gini: Number(o.gini ?? 0),
-            timestamp: Number(o.timestamp ?? 0),
-          } as TrainingPoint;
-        });
-        setHistory(pts);
+      const res = await fetch("/api/training/history", { cache: "no-store" });
+      if (!res.ok) {
+        setHistory([]);
+        return;
       }
+      const j = await res.json().catch(() => undefined);
+      // index.json entries use coveragePct / avgVisits / minVisits / maxVisits
+      const raw = j?.points ?? j ?? [];
+      const pts: TrainingPoint[] = (raw || []).map((o: any) => ({
+        episode: Number(o.episode ?? 0),
+        coverage: Number(o.coveragePct ?? o.coverage ?? 0),
+        states: Number(o.states ?? 0),
+        minV: Number(o.minVisits ?? o.minV ?? 0),
+        maxV: Number(o.maxVisits ?? o.maxV ?? 0),
+        avgV: Number(o.avgVisits ?? o.avgV ?? 0),
+        epsilon: Number(o.epsilon ?? 0),
+        newStates: 0,
+        stagnate: 0,
+        gini: 0,
+        timestamp: Number(o.timestamp ?? 0),
+      }));
+      setHistory(pts);
     } finally {
       setHistLoading(false);
     }
@@ -186,30 +186,7 @@ export default function StatsPage() {
     return formatCompact(data.trainingEpisodes);
   }, [data]);
 
-  // Smoothing util:
-  function smooth(points: TrainingPoint[], key: keyof TrainingPoint, win=15) {
-    if (!points.length) return [];
-    return points.map((p,i)=>{
-      const a = Math.max(0, i - win);
-      const b = Math.min(points.length -1, i + win);
-      const slice = points.slice(a,b+1);
-      const val = slice.reduce((s,x)=> s + (Number(x[key])||0),0)/slice.length;
-      return { ...p, [key]: val };
-    });
-  }
-
-  const smoothed = useMemo(()=> smooth(history,"coverage",10), [history]);
-
-  // episode bounds for charts (min/max episode in the loaded history)
-  const episodeBounds = useMemo(() => {
-    if (!history || history.length === 0) return { min: 0, max: 0 };
-    const eps = history.map((h) => Number(h.episode ?? 0)).filter((v) => !Number.isNaN(v));
-    const min = eps.length ? Math.min(...eps) : 0;
-    const max = eps.length ? Math.max(...eps) : 0;
-    return { min, max };
-  }, [history]);
-
-  const lastPoint = history.length ? history[history.length - 1] : null;
+  const lastPoint = history.length ? history[history.length - 1] : undefined;
 
   // Tooltip formatter without 'any'
   function coverageValueFormatter(value: unknown): [string, string] {
@@ -323,15 +300,7 @@ export default function StatsPage() {
                   {/* Use full-history (history) for the coverage chart with explicit XAxis numeric domain */}
                   <LineChart data={history}>
                     <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
-                    <XAxis
-                      type="number"
-                      dataKey="episode"
-                      stroke="#94a3b8"
-                      fontSize={11}
-                      domain={[episodeBounds.min || "dataMin", episodeBounds.max || "dataMax"]}
-                      allowDataOverflow
-                      tickFormatter={(v) => String(v)}
-                    />
+                    <XAxis dataKey="episode" stroke="#94a3b8" fontSize={11} />
                     <YAxis stroke="#94a3b8" fontSize={11} domain={[0, 100]} tickFormatter={v=>v+"%"} />
                     <Tooltip
                       contentStyle={{ background: "rgba(15,23,42,0.85)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }}
